@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>后台管理 - 计算机信息收集系统</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", -apple-system, sans-serif;
+    background: #f2f5f9; min-height: 100vh; color: #2c3e50;
+  }
+  .header {
+    background: linear-gradient(135deg, #16345f 0%, #1e5799 100%);
+    color: #fff; padding: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,.15);
+  }
+  .header-inner { max-width: 1240px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; }
+  .header h1 { font-size: 19px; font-weight: 600; }
+  .header .sub { font-size: 12px; opacity: .7; margin-left: 14px; }
+  .header .link { margin-left: auto; font-size: 13px; color: #cfe3ff; text-decoration: none; }
+  .header .link:hover { color: #fff; }
+  .header .hbtn {
+    margin-left: 10px; font-size: 13px; color: #dbe9fb; background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.22); border-radius: 7px; padding: 5px 13px; cursor: pointer;
+  }
+  .header .hbtn:hover { background: rgba(255,255,255,.18); color: #fff; }
+  .pwd-row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .pwd-row .form-item { flex: 1; min-width: 200px; }
+  .form-item label { display: block; font-size: 13px; color: #5a6b7f; margin-bottom: 6px; }
+  .form-item input {
+    width: 100%; padding: 9px 13px; border: 1px solid #d7dee8; border-radius: 8px;
+    font-size: 14px; outline: none;
+  }
+  .form-item input:focus { border-color: #3b82f6; }
+  .modal-foot { margin-top: 18px; text-align: right; }
+  .btn-save {
+    background: linear-gradient(135deg, #1e5799, #2989d8); color: #fff; border: none;
+    padding: 9px 26px; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: 600;
+  }
+  .btn-save:hover { opacity: .92; }
+  .btn-save:disabled { background: #b6c6d9; cursor: not-allowed; }
+  .pwd-msg { margin-top: 12px; font-size: 13px; display: none; padding: 8px 13px; border-radius: 8px; }
+  .pwd-msg.error { display: block; background: #fdecec; color: #c0392b; }
+  .pwd-msg.success { display: block; background: #e3f7e8; color: #1e9e4a; }
+  .container { max-width: 1240px; margin: 20px auto 40px; padding: 0 24px; }
+  .toolbar {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .search-box {
+    flex: 1; min-width: 260px; max-width: 420px; padding: 9px 14px;
+    border: 1px solid #d7dee8; border-radius: 8px; font-size: 14px; outline: none;
+  }
+  .search-box:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+  .btn {
+    padding: 9px 18px; border-radius: 8px; font-size: 14px; cursor: pointer; border: 1px solid #d7dee8;
+    background: #fff; color: #47586b; transition: all .15s; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { border-color: #3b82f6; color: #1e5799; }
+  .btn.primary { background: linear-gradient(135deg, #1e5799, #2989d8); color: #fff; border: none; font-weight: 600; }
+  .btn.primary:hover { opacity: .9; color: #fff; }
+  .stat-cards { display: flex; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+  .stat {
+    background: #fff; border-radius: 10px; padding: 14px 22px; box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .stat .num { font-size: 24px; font-weight: 700; color: #1e5799; }
+  .stat .lbl { font-size: 13px; color: #8494a7; }
+  .stat.green .num { color: #1e9e4a; }
+  .table-wrap { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 1050px; }
+  th, td { padding: 11px 14px; text-align: left; border-bottom: 1px solid #eef1f5; white-space: nowrap; }
+  th { background: #f7f9fc; color: #5a6b7f; font-weight: 600; position: sticky; top: 0; }
+  td.wrap { white-space: normal; word-break: break-all; min-width: 140px; }
+  tr:hover td { background: #f7fafd; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .badge.submitted { background: #e3f7e8; color: #1e9e4a; }
+  .badge.pending { background: #fff4e0; color: #d97706; }
+  .badge.laptop { background: #e0edff; color: #1d6fd8; }
+  .badge.desktop { background: #e3f7e8; color: #1e9e4a; }
+  .badge.other { background: #eceff3; color: #64748b; }
+  .link-btn { color: #1d6fd8; background: none; border: none; cursor: pointer; font-size: 13px; padding: 4px 8px; border-radius: 6px; }
+  .link-btn:hover { background: #e8f1ff; }
+  .empty { text-align: center; padding: 50px; color: #8494a7; font-size: 14px; }
+  /* 弹窗 */
+  .mask {
+    display: none; position: fixed; inset: 0; background: rgba(15,30,50,.45); z-index: 10;
+    align-items: flex-start; justify-content: center; overflow-y: auto; padding: 40px 16px;
+  }
+  .mask.show { display: flex; }
+  .modal { background: #fff; border-radius: 14px; width: 900px; max-width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,.2); }
+  .modal-head {
+    padding: 18px 24px; border-bottom: 1px solid #eef1f5; display: flex; align-items: center;
+  }
+  .modal-head h3 { font-size: 16px; color: #1e5799; }
+  .modal-head .close { margin-left: auto; background: none; border: none; font-size: 22px; color: #8494a7; cursor: pointer; line-height: 1; }
+  .modal-head .close:hover { color: #2c3e50; }
+  .modal-body { padding: 20px 24px 26px; }
+  .section-title { font-size: 14px; font-weight: 600; color: #47586b; margin: 18px 0 10px; }
+  .section-title:first-child { margin-top: 0; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 30px; }
+  @media (max-width: 700px) { .info-grid { grid-template-columns: 1fr; } }
+  .info-item { display: flex; font-size: 13.5px; line-height: 1.6; }
+  .info-item .label { color: #8494a7; width: 110px; flex-shrink: 0; }
+  .info-item .value { word-break: break-all; font-weight: 500; }
+  table.inner { min-width: 0; }
+  table.inner th, table.inner td { padding: 8px 10px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <h1>计算机信息收集系统 · 后台管理</h1>
+    <span class="sub">查看提交记录 / 导出 Excel</span>
+    <a class="link" href="/" target="_blank">打开前台 »</a>
+    <button class="hbtn" id="btn-chpwd">修改密码</button>
+    <button class="hbtn" id="btn-logout">退出登录</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="stat-cards">
+    <div class="stat"><span class="num" id="stat-total">0</span><span class="lbl">上报总数</span></div>
+    <div class="stat green"><span class="num" id="stat-submitted">0</span><span class="lbl">已提交登记</span></div>
+    <div class="stat"><span class="num" id="stat-pending">0</span><span class="lbl">待提交登记</span></div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" class="search-box" id="q" placeholder="搜索主机名 / 使用人 / 部门 / 品牌 / 型号 / 序列号...">
+    <button class="btn" id="btn-search">查询</button>
+    <button class="btn" id="btn-refresh">刷新</button>
+    <button class="btn primary" id="btn-export">⬇ 导出 Excel</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>状态</th><th>上报时间</th><th>主机名</th><th>品牌 / 型号</th><th>类型</th>
+          <th>操作系统</th><th>当前登录用户</th><th>使用人</th><th>部门</th><th>IP 地址</th>
+          <th>内存</th><th>硬盘数</th><th>软件数</th><th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="empty" id="empty" style="display:none">暂无记录，请在目标电脑上运行 collect.ps1</div>
+  </div>
+</div>
+
+<!-- 详情弹窗 -->
+<div class="mask" id="mask">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modal-title">记录详情</h3>
+      <button class="close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- 修改密码弹窗 -->
+<div class="mask" id="pwd-mask">
+  <div class="modal" style="width:460px">
+    <div class="modal-head">
+      <h3>修改密码</h3>
+      <button class="close" onclick="closePwd()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="pwd-row">
+        <div class="form-item" style="flex:100%">
+          <label>原密码</label>
+          <input type="password" id="pwd-old" autocomplete="off" placeholder="请输入当前密码">
+        </div>
+        <div class="form-item" style="flex:100%">
+          <label>新密码（至少 6 位）</label>
+          <input type="password" id="pwd-new" autocomplete="new-password" placeholder="请输入新密码">
+        </div>
+        <div class="form-item" style="flex:100%">
+          <label>确认新密码</label>
+          <input type="password" id="pwd-new2" autocomplete="new-password" placeholder="请再次输入新密码">
+        </div>
+      </div>
+      <div class="pwd-msg" id="pwd-msg"></div>
+      <div class="modal-foot">
+        <button class="btn" onclick="closePwd()" style="margin-right:8px">取消</button>
+        <button class="btn-save" id="pwd-save">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const na = (v) => esc(v) || '—';
+const naHtml = (v) => esc(v) || '<span style="color:#b6c6d9">—</span>';
+
+// 统一请求封装：自动带 cookie；401（未登录/过期）跳转登录页
+async function api(url, options) {
+  const r = await fetch(url, options);
+  if (r.status === 401) { location.href = '/admin/login'; throw new Error('未登录'); }
+  return r;
+}
+
+async function loadRecords() {
+  const q = $('q').value.trim();
+  const resp = await api(`/api/records${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+  const json = await resp.json();
+  if (!json.ok) return;
+  render(json.data);
+}
+
+function render(list) {
+  const total = list.length;
+  const submitted = list.filter(x => x.status === 'submitted').length;
+  $('stat-total').textContent = total;
+  $('stat-submitted').textContent = submitted;
+  $('stat-pending').textContent = total - submitted;
+
+  $('empty').style.display = list.length ? 'none' : 'block';
+  $('tbody').innerHTML = list.map(r => {
+    const typeCls = r.device_type === '笔记本' ? 'laptop' : r.device_type === '台式机' ? 'desktop' : 'other';
+    return `<tr>
+      <td>${r.status === 'submitted' ? '<span class="badge submitted">已提交</span>' : '<span class="badge pending">待提交</span>'}</td>
+      <td>${esc(r.reported_at)}</td>
+      <td><b>${naHtml(r.hostname)}</b></td>
+      <td class="wrap">${naHtml(r.brand)} ${naHtml(r.model)}</td>
+      <td><span class="badge ${typeCls}">${esc(r.device_type) || '未知'}</span></td>
+      <td class="wrap">${naHtml(r.os_version)}</td>
+      <td>${naHtml(r.logged_user)}</td>
+      <td>${r.user_name ? `<b>${esc(r.user_name)}</b>` : '<span style="color:#b6c6d9">—</span>'}</td>
+      <td>${r.department ? esc(r.department) : '<span style="color:#b6c6d9">—</span>'}</td>
+      <td>${naHtml(r.ip)}</td>
+      <td>${naHtml(r.memory_total_gb)} GB</td>
+      <td>${r.disk_count}</td>
+      <td>${r.software_count}</td>
+      <td><button class="link-btn" onclick="openDetail(${r.id})">详情</button></td>
+    </tr>`;
+  }).join('');
+}
+
+$('btn-search').addEventListener('click', loadRecords);
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter') loadRecords(); });
+$('btn-refresh').addEventListener('click', loadRecords);
+
+// 导出 Excel（fetch 方式以便在登录过期时跳转登录页）
+$('btn-export').addEventListener('click', async () => {
+  const btn = $('btn-export');
+  btn.disabled = true;
+  const oldText = btn.textContent;
+  btn.textContent = '导出中...';
+  try {
+    const r = await api('/admin/export');
+    if (!r.ok) return;
+    const blob = await r.blob();
+    const cd = r.headers.get('content-disposition') || '';
+    const m = cd.match(/filename\*=UTF-8''([^;]+)/);
+    const filename = m ? decodeURIComponent(m[1]) : '计算机信息.xlsx';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) { /* 401 已跳转 */ }
+  finally { btn.disabled = false; btn.textContent = oldText; }
+});
+
+// 退出登录
+$('btn-logout').addEventListener('click', async () => {
+  await fetch('/api/admin/logout', { method: 'POST' }).catch(() => {});
+  location.href = '/admin/login';
+});
+
+// 修改密码
+function openPwd() {
+  $('pwd-old').value = ''; $('pwd-new').value = ''; $('pwd-new2').value = '';
+  $('pwd-msg').className = 'pwd-msg';
+  $('pwd-mask').classList.add('show');
+  setTimeout(() => $('pwd-old').focus(), 50);
+}
+function closePwd() { $('pwd-mask').classList.remove('show'); }
+$('btn-chpwd').addEventListener('click', openPwd);
+$('pwd-mask').addEventListener('click', e => { if (e.target === $('pwd-mask')) closePwd(); });
+$('pwd-save').addEventListener('click', async () => {
+  const oldP = $('pwd-old').value;
+  const newP = $('pwd-new').value;
+  const newP2 = $('pwd-new2').value;
+  const m = $('pwd-msg');
+  m.className = 'pwd-msg';
+  if (!oldP || !newP || !newP2) { m.className = 'pwd-msg error'; m.textContent = '请填写完整'; return; }
+  if (newP.length < 6) { m.className = 'pwd-msg error'; m.textContent = '新密码至少 6 位'; return; }
+  if (newP !== newP2) { m.className = 'pwd-msg error'; m.textContent = '两次输入的新密码不一致'; return; }
+  const btn = $('pwd-save');
+  btn.disabled = true; btn.textContent = '保存中...';
+  try {
+    const r = await api('/api/admin/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ old_password: oldP, new_password: newP }),
+    });
+    const j = await r.json();
+    if (j.ok) {
+      m.className = 'pwd-msg success';
+      m.textContent = '密码修改成功';
+      setTimeout(closePwd, 1000);
+    } else {
+      m.className = 'pwd-msg error';
+      m.textContent = j.error || '修改失败';
+    }
+  } catch (e) { /* 401 已跳转 */ }
+  finally { btn.disabled = false; btn.textContent = '保存'; }
+});
+
+async function openDetail(id) {
+  const resp = await api(`/api/records/${id}`);
+  const json = await resp.json();
+  if (!json.ok) return alert(json.error || '加载失败');
+  const d = json.data;
+  $('modal-title').innerHTML = `${esc(d.hostname)} <span style="font-size:12px;color:#8494a7">${esc(d.brand)} ${esc(d.model)}</span>`;
+
+  const memRows = (d.memory || []).map(m => `<tr>
+    <td>${esc(m.slot)}</td><td>${esc(m.manufacturer)}</td><td>${esc(m.partno)}</td>
+    <td><b>${esc(m.capacity_gb)}</b> GB</td><td>${esc(m.speed)} MHz</td></tr>`).join('');
+
+  const diskRows = (d.disks || []).map(k => `<tr>
+    <td>${esc(k.model)}</td><td>${esc(k.interface)}</td>
+    <td><b>${esc(k.size_gb)}</b> GB</td><td>${esc(k.serial)}</td></tr>`).join('');
+
+  const netRows = (d.network || []).map(n => `<tr>
+    <td>${esc(n.name)}</td><td>${esc(n.ip)}</td><td>${esc(n.mac)}</td></tr>`).join('');
+
+  let swHtml = '';
+  if ((d.software || []).length) {
+    swHtml = `<div class="section-title">已安装软件（${d.software.length} 个）</div>
+    <table class="inner"><thead><tr><th style="width:40%">软件名称</th><th>版本</th><th>发布者</th></tr></thead>
+    <tbody>${d.software.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.version)}</td><td>${esc(x.publisher)}</td></tr>`).join('')}</tbody></table>`;
+  }
+
+  $('modal-body').innerHTML = `
+    <div class="section-title">基本信息</div>
+    <div class="info-grid">
+      <div class="info-item"><span class="label">状态</span><span class="value">${d.status === 'submitted' ? '<span class="badge submitted">已提交</span>' : '<span class="badge pending">待提交</span>'}</span></div>
+      <div class="info-item"><span class="label">设备类型</span><span class="value">${esc(d.device_type) || '—'}</span></div>
+      <div class="info-item"><span class="label">上报时间</span><span class="value">${esc(d.reported_at)}</span></div>
+      <div class="info-item"><span class="label">提交时间</span><span class="value">${esc(d.submitted_at) || '—'}</span></div>
+      <div class="info-item"><span class="label">品牌型号</span><span class="value">${esc(d.brand)} ${esc(d.model)}</span></div>
+      <div class="info-item"><span class="label">设备序列号</span><span class="value">${esc(d.serial) || '—'}</span></div>
+      <div class="info-item"><span class="label">主机名</span><span class="value">${esc(d.hostname)}</span></div>
+      <div class="info-item"><span class="label">操作系统</span><span class="value">${esc(d.os_version)}（${esc(d.os_build)}）</span></div>
+      <div class="info-item"><span class="label">CPU</span><span class="value">${esc(d.cpu) || '—'}</span></div>
+      <div class="info-item"><span class="label">当前登录用户</span><span class="value">${esc(d.logged_user) || '—'}</span></div>
+      <div class="info-item"><span class="label">使用人</span><span class="value">${esc(d.user_name) || '—'}</span></div>
+      <div class="info-item"><span class="label">部门</span><span class="value">${esc(d.department) || '—'}</span></div>
+    </div>
+    <div class="section-title">内存（总计 ${esc(d.memory_total_gb)} GB）</div>
+    <table class="inner"><thead><tr><th>插槽</th><th>厂商</th><th>型号</th><th>容量</th><th>频率</th></tr></thead>
+    <tbody>${memRows || '<tr><td colspan="5" style="color:#b6c6d9">无数据</td></tr>'}</tbody></table>
+    <div class="section-title">硬盘</div>
+    <table class="inner"><thead><tr><th>型号</th><th>接口</th><th>容量</th><th>序列号 SN</th></tr></thead>
+    <tbody>${diskRows || '<tr><td colspan="4" style="color:#b6c6d9">无数据</td></tr>'}</tbody></table>
+    <div class="section-title">网卡</div>
+    <table class="inner"><thead><tr><th>网卡</th><th>IP 地址</th><th>MAC 地址</th></tr></thead>
+    <tbody>${netRows || '<tr><td colspan="3" style="color:#b6c6d9">无数据</td></tr>'}</tbody></table>
+    ${swHtml}`;
+
+  $('mask').classList.add('show');
+}
+
+function closeModal() { $('mask').classList.remove('show'); }
+$('mask').addEventListener('click', e => { if (e.target === $('mask')) closeModal(); });
+
+// 启动：先确认登录态，再加载数据
+(async function init() {
+  try {
+    const r = await fetch('/api/admin/session', { credentials: 'same-origin' });
+    if (r.status === 401) { location.href = '/admin/login'; return; }
+    if (!r.ok) return;
+  } catch (e) { return; }
+  loadRecords();
+})();
+</script>
+</body>
+</html>

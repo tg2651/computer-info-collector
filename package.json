@@ -1,0 +1,14 @@
+{
+  "name": "computer-info-collector",
+  "version": "1.0.0",
+  "description": "计算机信息收集系统：前台展示+提交，后台查看+导出Excel",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "12.4.1",
+    "exceljs": "4.4.0",
+    "express": "5.2.1"
+  }
+}

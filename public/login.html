@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>后台登录 - 计算机信息收集系统</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", -apple-system, sans-serif;
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #0f2a4d 0%, #16345f 45%, #1e5799 100%);
+  }
+  .login-box {
+    background: #fff; width: 380px; max-width: calc(100vw - 40px); border-radius: 14px;
+    padding: 38px 34px 30px; box-shadow: 0 18px 50px rgba(0,0,0,.3);
+  }
+  .logo { text-align: center; margin-bottom: 8px; font-size: 34px; }
+  h1 { text-align: center; font-size: 19px; color: #16345f; margin-bottom: 6px; }
+  .sub { text-align: center; font-size: 12.5px; color: #8494a7; margin-bottom: 26px; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; color: #5a6b7f; margin-bottom: 6px; }
+  .field input {
+    width: 100%; padding: 11px 14px; border: 1px solid #d7dee8; border-radius: 8px;
+    font-size: 14px; outline: none; transition: border-color .2s;
+  }
+  .field input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+  .btn-login {
+    width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer;
+    background: linear-gradient(135deg, #1e5799, #2989d8); color: #fff;
+    font-size: 15px; font-weight: 600; margin-top: 4px;
+  }
+  .btn-login:hover { opacity: .93; }
+  .btn-login:disabled { background: #b6c6d9; cursor: not-allowed; }
+  .msg { margin-top: 14px; font-size: 13px; display: none; padding: 9px 14px; border-radius: 8px; text-align: center; }
+  .msg.error { display: block; background: #fdecec; color: #c0392b; }
+  .tip {
+    margin-top: 22px; padding: 10px 14px; background: #f5f9ff; border-radius: 8px;
+    font-size: 12px; color: #6b7f95; line-height: 1.7;
+  }
+  .tip b { color: #1e5799; }
+</style>
+</head>
+<body>
+
+<div class="login-box">
+  <div class="logo">🔐</div>
+  <h1>计算机信息收集系统</h1>
+  <div class="sub">后台管理登录</div>
+
+  <form id="login-form">
+    <div class="field">
+      <label>管理员账号</label>
+      <input type="text" id="username" autocomplete="username" placeholder="请输入账号" value="admin">
+    </div>
+    <div class="field">
+      <label>密码</label>
+      <input type="password" id="password" autocomplete="current-password" placeholder="请输入密码">
+    </div>
+    <button type="submit" class="btn-login" id="btn-login">登 录</button>
+    <div class="msg" id="msg"></div>
+  </form>
+
+  <div class="tip">
+    初始账号 <b>admin</b>，初始密码 <b>admin123</b>。<br>
+    登录后请尽快在右上角「修改密码」中更换。
+  </div>
+</div>
+
+<script>
+const form = document.getElementById('login-form');
+const btn = document.getElementById('btn-login');
+const msg = document.getElementById('msg');
+
+// 已登录则直接进入后台
+fetch('/api/admin/session', { credentials: 'same-origin' })
+  .then((r) => { if (r.ok) location.replace('/admin'); })
+  .catch(() => {});
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  msg.className = 'msg';
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  if (!username || !password) {
+    msg.className = 'msg error';
+    msg.textContent = '请输入账号和密码';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = '登录中...';
+  try {
+    const resp = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ username, password }),
+    });
+    const json = await resp.json();
+    if (json.ok) {
+      location.replace('/admin');
+    } else {
+      msg.className = 'msg error';
+      msg.textContent = json.error || '登录失败';
+      btn.disabled = false;
+      btn.textContent = '登 录';
+    }
+  } catch (err) {
+    msg.className = 'msg error';
+    msg.textContent = '网络错误，请稍后重试';
+    btn.disabled = false;
+    btn.textContent = '登 录';
+  }
+});
+document.getElementById('password').focus();
+</script>
+</body>
+</html>

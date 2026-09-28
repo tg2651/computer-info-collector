@@ -1,0 +1,47 @@
+# === SSH keys / secrets ===
+deploy/key/
+
+# === Database (contains user-submitted records) ===
+data.db
+data.db-shm
+data.db-wal
+
+# === Node.js dependencies ===
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# === Portable runtime (only needed for local dev on Windows) ===
+runtime/
+
+# === Build artifacts / deployment packages ===
+deploy/bin/
+deploy/pkg/
+deploy/*.tar.gz
+
+# === Compiled collector binary (users compile their own from collector-src/) ===
+public/collect.exe
+
+# === Local helper scripts (not part of the project) ===
+genkey.bat
+
+# === Runtime config files (contain user's server address) ===
+**/server.txt
+
+# === Logs / temp ===
+*.log
+*.tmp
+*.bak
+
+# === IDE ===
+.vscode/
+.idea/
+*.suo
+*.user
+*.swp
+
+# === OS ===
+Thumbs.db
+Desktop.ini
+.DS_Store

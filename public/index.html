@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>计算机信息登记</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", -apple-system, sans-serif;
+    background: linear-gradient(135deg, #e8f0fe 0%, #f5f7fa 40%, #eef2f7 100%);
+    min-height: 100vh; color: #2c3e50; padding-bottom: 60px;
+  }
+  .header {
+    background: linear-gradient(135deg, #1e5799 0%, #2989d8 60%, #3b82f6 100%);
+    color: #fff; padding: 28px 0; box-shadow: 0 2px 12px rgba(30,87,153,.25);
+  }
+  .header-inner { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header p { font-size: 13px; opacity: .85; margin-top: 6px; }
+  .container { max-width: 1000px; margin: 24px auto 0; padding: 0 24px; }
+  .card {
+    background: #fff; border-radius: 12px; padding: 22px 26px; margin-bottom: 18px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  .card h2 {
+    font-size: 16px; color: #1e5799; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+    padding-bottom: 10px; border-bottom: 1px solid #eef1f5;
+  }
+  .card h2 .icon { font-size: 18px; }
+  .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px 28px; }
+  .info-item { display: flex; padding: 6px 0; font-size: 14px; line-height: 1.5; }
+  .info-item .label { color: #8494a7; width: 110px; flex-shrink: 0; }
+  .info-item .value { color: #2c3e50; word-break: break-all; font-weight: 500; }
+  .badge {
+    display: inline-block; padding: 2px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  }
+  .badge.laptop { background: #e0edff; color: #1d6fd8; }
+  .badge.desktop { background: #e3f7e8; color: #1e9e4a; }
+  .badge.other { background: #eceff3; color: #64748b; }
+  .badge.submitted { background: #e3f7e8; color: #1e9e4a; }
+  .badge.pending { background: #fff4e0; color: #d97706; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid #eef1f5; word-break: break-all; }
+  th { background: #f7f9fc; color: #5a6b7f; font-weight: 600; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  .total-line { font-size: 13px; color: #64748b; margin-bottom: 10px; }
+  .total-line b { color: #1e5799; font-size: 15px; }
+  .search-box {
+    width: 240px; padding: 7px 12px; border: 1px solid #d7dee8; border-radius: 8px;
+    font-size: 13px; outline: none; margin-bottom: 12px;
+  }
+  .search-box:focus { border-color: #3b82f6; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; }
+  .toolbar .count { font-size: 13px; color: #8494a7; }
+  /* 提交表单 */
+  .form-row { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 16px; }
+  .form-item { flex: 1; min-width: 220px; }
+  .form-item label { display: block; font-size: 13px; color: #5a6b7f; margin-bottom: 6px; }
+  .form-item label .req { color: #e74c3c; margin-left: 2px; }
+  .form-item input {
+    width: 100%; padding: 10px 14px; border: 1px solid #d7dee8; border-radius: 8px;
+    font-size: 14px; outline: none; transition: border-color .2s;
+  }
+  .form-item input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+  .btn-submit {
+    background: linear-gradient(135deg, #1e5799, #2989d8); color: #fff; border: none;
+    padding: 11px 40px; border-radius: 8px; font-size: 15px; cursor: pointer; font-weight: 600;
+    transition: opacity .2s, transform .1s;
+  }
+  .btn-submit:hover { opacity: .92; }
+  .btn-submit:active { transform: scale(.98); }
+  .btn-submit:disabled { background: #b6c6d9; cursor: not-allowed; }
+  .msg { margin-top: 12px; font-size: 13px; display: none; padding: 9px 14px; border-radius: 8px; }
+  .msg.error { display: block; background: #fdecec; color: #c0392b; }
+  .msg.success { display: block; background: #e3f7e8; color: #1e9e4a; }
+  .done-tip { display: flex; align-items: center; gap: 10px; background: #e3f7e8; color: #1e9e4a;
+    padding: 14px 18px; border-radius: 10px; font-size: 14px; font-weight: 500; }
+  .empty-tip { text-align: center; padding: 60px 20px; color: #8494a7; }
+  .empty-tip .big { font-size: 44px; margin-bottom: 14px; }
+  .empty-tip h3 { color: #5a6b7f; margin-bottom: 8px; font-size: 16px; }
+  .empty-tip p { font-size: 13px; line-height: 1.8; }
+  .spin {
+    width: 34px; height: 34px; border: 3px solid #dbe4ef; border-top-color: #2989d8;
+    border-radius: 50%; margin: 60px auto 14px; animation: r 0.8s linear infinite;
+  }
+  @keyframes r { to { transform: rotate(360deg); } }
+  .loading-text { text-align: center; color: #8494a7; font-size: 14px; }
+  .footer { text-align: center; color: #a8b6c5; font-size: 12px; margin-top: 30px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <h1>计算机信息登记</h1>
+    <p>请核对以下自动收集的设备信息，填写使用人和部门后提交</p>
+  </div>
+</div>
+
+<div class="container">
+  <div id="loading"><div class="spin"></div><div class="loading-text">正在加载设备信息...</div></div>
+
+  <div id="error" class="card" style="display:none">
+    <div class="empty-tip">
+      <div class="big">⚠️</div>
+      <h3 id="error-title">无法加载设备信息</h3>
+      <p id="error-detail"></p>
+    </div>
+  </div>
+
+  <!-- 无设备参数：下载采集工具引导页 -->
+  <div id="welcome" class="card" style="display:none">
+    <div style="text-align:center; padding: 16px 10px 8px">
+      <div style="font-size:46px">🖥️</div>
+      <h2 style="border:none; margin:10px 0 6px; color:#1e5799; font-size:21px">计算机信息登记</h2>
+      <p style="color:#8494a7; font-size:14px; line-height:1.8">
+        本系统需要先运行一个小采集程序（仅 17KB，无需安装，<b>不需要 PowerShell</b>），<br>
+        程序会自动读取电脑配置并打开登记页面，全程约 5 秒钟。
+      </p>
+      <a href="/collect.exe" download="collect.exe" style="text-decoration:none; display:inline-block; margin:20px 0 8px">
+        <span style="display:inline-block; background:linear-gradient(135deg,#1e5799,#2989d8); color:#fff; padding:14px 44px; border-radius:10px; font-size:17px; font-weight:600; box-shadow:0 4px 14px rgba(30,87,153,.3)">
+          ⬇ 第一步：下载采集工具 collect.exe
+        </span>
+      </a>
+    </div>
+    <div style="max-width:620px; margin:10px auto 0; background:#f7f9fc; border-radius:10px; padding:18px 24px; font-size:14px; line-height:2.1; color:#47586b">
+      <b style="color:#1e5799">第二步：</b>双击运行下载的 <b>collect.exe</b><br>
+      <b style="color:#1e5799">第三步：</b>浏览器会自动打开本电脑的信息确认页，核对后填写<b>使用人</b>和<b>部门</b>，点提交即完成
+    </div>
+    <div style="max-width:620px; margin:14px auto 0; background:#fff8ec; border:1px solid #ffe3a8; border-radius:10px; padding:14px 20px; font-size:13px; color:#8a6d3b; line-height:1.8">
+      <b>提示：</b>若 Windows 弹出「已保护你的电脑」蓝色提示框，请点击<b>「更多信息」</b>，再点<b>「仍要运行」</b>。
+      该程序仅读取硬件信息并上传到本系统，不会访问任何个人文件。部分杀毒软件可能提示风险，选择「允许/信任」即可。
+    </div>
+    <p style="text-align:center; color:#a8b6c5; font-size:12px; margin-top:18px">
+      信息仅用于公司 IT 资产管理 · 如已运行过本工具，请直接使用程序自动打开的页面链接
+    </p>
+  </div>
+
+  <div id="content" style="display:none">
+    <!-- 基本信息 -->
+    <div class="card">
+      <h2><span class="icon">🖥️</span>基本信息
+        <span id="status-badge" style="margin-left:auto"></span>
+      </h2>
+      <div class="info-grid" id="basic-grid"></div>
+    </div>
+
+    <!-- 内存 -->
+    <div class="card">
+      <h2><span class="icon">🧠</span>内存</h2>
+      <div class="total-line">内存总量：<b id="mem-total"></b></div>
+      <table>
+        <thead><tr><th>插槽</th><th>厂商</th><th>型号</th><th>容量</th><th>频率</th></tr></thead>
+        <tbody id="mem-body"></tbody>
+      </table>
+    </div>
+
+    <!-- 硬盘 -->
+    <div class="card">
+      <h2><span class="icon">💾</span>硬盘</h2>
+      <table>
+        <thead><tr><th>型号</th><th>接口</th><th>容量</th><th>序列号 (SN)</th></tr></thead>
+        <tbody id="disk-body"></tbody>
+      </table>
+    </div>
+
+    <!-- 网络 -->
+    <div class="card">
+      <h2><span class="icon">🌐</span>网卡信息</h2>
+      <table>
+        <thead><tr><th>网卡</th><th>IP 地址</th><th>MAC 地址</th></tr></thead>
+        <tbody id="net-body"></tbody>
+      </table>
+    </div>
+
+    <!-- 软件列表 -->
+    <div class="card">
+      <h2><span class="icon">📦</span>已安装软件</h2>
+      <div class="toolbar">
+        <input type="text" class="search-box" id="sw-search" placeholder="搜索软件名称...">
+        <span class="count" id="sw-count"></span>
+      </div>
+      <table>
+        <thead><tr><th style="width:40%">软件名称</th><th>版本</th><th>发布者</th></tr></thead>
+        <tbody id="sw-body"></tbody>
+      </table>
+    </div>
+
+    <!-- 提交 -->
+    <div class="card" id="submit-card">
+      <h2><span class="icon">📝</span>登记信息</h2>
+      <div id="submit-form">
+        <div class="form-row">
+          <div class="form-item">
+            <label>使用人<span class="req">*</span></label>
+            <input type="text" id="user-name" maxlength="50" placeholder="请输入使用人姓名">
+          </div>
+          <div class="form-item">
+            <label>部门<span class="req">*</span></label>
+            <input type="text" id="department" maxlength="50" placeholder="请输入所在部门">
+          </div>
+        </div>
+        <button class="btn-submit" id="btn-submit">提交登记</button>
+        <div class="msg" id="form-msg"></div>
+      </div>
+      <div id="submitted-tip" style="display:none">
+        <div class="done-tip">✅ 本设备已完成登记，感谢配合！</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">计算机信息收集系统 · 信息仅用于 IT 资产管理</div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const na = (v) => esc(v) || '<span style="color:#b6c6d9">—</span>';
+
+let recordId = null;
+let allSoftware = [];
+
+function showError(title, detail) {
+  $('loading').style.display = 'none';
+  $('error').style.display = 'block';
+  $('error-title').textContent = title;
+  $('error-detail').textContent = detail || '';
+}
+
+async function load() {
+  const params = new URLSearchParams(location.search);
+  recordId = params.get('id');
+  if (!recordId) {
+    $('loading').style.display = 'none';
+    $('welcome').style.display = 'block';
+    return;
+  }
+  try {
+    const resp = await fetch(`/api/info?id=${encodeURIComponent(recordId)}`);
+    const json = await resp.json();
+    if (!json.ok) return showError('无法加载设备信息', json.error || '');
+    render(json.data);
+  } catch (e) {
+    showError('无法连接服务器', '请确认服务端已启动，并刷新重试。');
+  }
+}
+
+function render(d) {
+  $('loading').style.display = 'none';
+  $('content').style.display = 'block';
+
+  // 状态徽章
+  const badge = d.status === 'submitted'
+    ? '<span class="badge submitted">已提交</span>'
+    : '<span class="badge pending">待提交</span>';
+  $('status-badge').innerHTML = badge;
+
+  // 基本信息
+  const typeCls = d.device_type === '笔记本' ? 'laptop' : d.device_type === '台式机' ? 'desktop' : 'other';
+  const items = [
+    ['品牌型号', `<b>${na(d.brand === 'System manufacturer' ? '' : d.brand)}</b> ${esc(d.model === 'System Product Name' ? '' : d.model)}`.trim()],
+    ['设备类型', `<span class="badge ${typeCls}">${esc(d.device_type) || '未知'}</span>`],
+    ['主机名', `<b>${na(d.hostname)}</b>`],
+    ['设备序列号', na(d.serial)],
+    ['操作系统', na(d.os_version)],
+    ['系统版本号', na(d.os_build)],
+    ['CPU 处理器', na(d.cpu)],
+    ['当前登录用户', na(d.logged_user)],
+  ];
+  $('basic-grid').innerHTML = items.map(([k, v]) =>
+    `<div class="info-item"><span class="label">${k}</span><span class="value">${v}</span></div>`).join('');
+
+  // 内存
+  $('mem-total').textContent = `${d.memory_total_gb || '?'} GB`;
+  $('mem-body').innerHTML = (d.memory || []).map(m => `<tr>
+      <td>${esc(m.slot)}</td><td>${esc(m.manufacturer)}</td><td>${esc(m.partno)}</td>
+      <td><b>${esc(m.capacity_gb)}</b> GB</td><td>${esc(m.speed)} MHz</td></tr>`).join('')
+    || '<tr><td colspan="5" style="color:#b6c6d9;text-align:center">未检测到内存条信息</td></tr>';
+
+  // 硬盘
+  $('disk-body').innerHTML = (d.disks || []).map(k => `<tr>
+      <td>${esc(k.model)}</td><td>${esc(k.interface)}</td>
+      <td><b>${esc(k.size_gb)}</b> GB</td><td>${esc(k.serial)}</td></tr>`).join('')
+    || '<tr><td colspan="4" style="color:#b6c6d9;text-align:center">未检测到硬盘信息</td></tr>';
+
+  // 网络
+  $('net-body').innerHTML = (d.network || []).map(n => `<tr>
+      <td>${esc(n.name)}</td><td>${esc(n.ip)}</td><td>${esc(n.mac)}</td></tr>`).join('')
+    || '<tr><td colspan="3" style="color:#b6c6d9;text-align:center">未检测到网卡信息</td></tr>';
+
+  // 软件
+  allSoftware = d.software || [];
+  $('sw-count').textContent = `共 ${allSoftware.length} 个`;
+  renderSoftware('');
+
+  // 提交状态
+  if (d.status === 'submitted') {
+    $('submit-form').style.display = 'none';
+    $('submitted-tip').style.display = 'block';
+  }
+}
+
+function renderSoftware(kw) {
+  const list = kw
+    ? allSoftware.filter(x => (x.name || '').toLowerCase().includes(kw) || (x.publisher || '').toLowerCase().includes(kw))
+    : allSoftware;
+  $('sw-count').textContent = kw ? `匹配 ${list.length} / ${allSoftware.length} 个` : `共 ${allSoftware.length} 个`;
+  $('sw-body').innerHTML = list.map(x => `<tr>
+      <td>${esc(x.name)}</td><td>${esc(x.version)}</td><td>${esc(x.publisher)}</td></tr>`).join('')
+    || '<tr><td colspan="3" style="color:#b6c6d9;text-align:center">没有匹配的软件</td></tr>';
+}
+
+$('sw-search').addEventListener('input', (e) => renderSoftware(e.target.value.trim().toLowerCase()));
+
+$('btn-submit').addEventListener('click', async () => {
+  const userName = $('user-name').value.trim();
+  const department = $('department').value.trim();
+  const msg = $('form-msg');
+  msg.className = 'msg';
+  if (!userName || !department) {
+    msg.className = 'msg error';
+    msg.textContent = '请填写使用人和部门后再提交';
+    return;
+  }
+  const btn = $('btn-submit');
+  btn.disabled = true;
+  btn.textContent = '提交中...';
+  try {
+    const resp = await fetch('/api/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: recordId, user_name: userName, department }),
+    });
+    const json = await resp.json();
+    if (json.ok) {
+      msg.className = 'msg success';
+      msg.textContent = '提交成功，信息已记录！';
+      btn.textContent = '已提交';
+      $('status-badge').innerHTML = '<span class="badge submitted">已提交</span>';
+    } else {
+      msg.className = 'msg error';
+      msg.textContent = json.error || '提交失败，请重试';
+      btn.disabled = false;
+      btn.textContent = '提交登记';
+    }
+  } catch (e) {
+    msg.className = 'msg error';
+    msg.textContent = '网络错误，请确认服务端已启动后重试';
+    btn.disabled = false;
+    btn.textContent = '提交登记';
+  }
+});
+
+load();
+</script>
+</body>
+</html>
