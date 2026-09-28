@@ -87,6 +87,14 @@
   @keyframes r { to { transform: rotate(360deg); } }
   .loading-text { text-align: center; color: #8494a7; font-size: 14px; }
   .footer { text-align: center; color: #a8b6c5; font-size: 12px; margin-top: 30px; }
+  .dl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 680px; margin: 20px auto; }
+  .dl-card { border-radius: 12px; padding: 18px; }
+  .dl-card.primary { border: 2px solid #1e5799; background: linear-gradient(180deg,#f0f7ff,#fff); }
+  .dl-card.secondary { border: 1px solid #d7dee8; background: #fff; }
+  .dl-btn { display: block; padding: 11px; border-radius: 8px; font-size: 14px; font-weight: 600; text-align: center; text-decoration: none; }
+  .dl-btn.primary { background: linear-gradient(135deg,#1e5799,#2989d8); color: #fff; box-shadow: 0 4px 14px rgba(30,87,153,.25); }
+  .dl-btn.secondary { background: #f7f9fc; color: #1e5799; border: 1px solid #1e5799; }
+  @media (max-width: 640px) { .dl-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -115,17 +123,31 @@
       <div style="font-size:46px">🖥️</div>
       <h2 style="border:none; margin:10px 0 6px; color:#1e5799; font-size:21px">计算机信息登记</h2>
       <p style="color:#8494a7; font-size:14px; line-height:1.8">
-        本系统需要先运行一个小采集程序（仅 17KB，无需安装，<b>不需要 PowerShell</b>），<br>
-        程序会自动读取电脑配置并打开登记页面，全程约 5 秒钟。
+        请先下载并运行采集工具，程序会自动读取电脑配置并打开登记页面，全程约 5 秒钟。<br>
+        两种版本任选其一，均无需安装、<b>不需要 PowerShell</b>。
       </p>
-      <a href="/collect.exe" download="collect.exe" style="text-decoration:none; display:inline-block; margin:20px 0 8px">
-        <span style="display:inline-block; background:linear-gradient(135deg,#1e5799,#2989d8); color:#fff; padding:14px 44px; border-radius:10px; font-size:17px; font-weight:600; box-shadow:0 4px 14px rgba(30,87,153,.3)">
-          ⬇ 第一步：下载采集工具 collect.exe
-        </span>
-      </a>
+    </div>
+    <div class="dl-grid">
+      <div class="dl-card primary">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px">
+          <b style="color:#1e5799; font-size:15px">🖱️ 图形界面版</b>
+          <span style="background:#1e5799; color:#fff; font-size:11px; padding:2px 8px; border-radius:10px">推荐</span>
+        </div>
+        <p style="color:#5a6b7f; font-size:12px; line-height:1.6; margin-bottom:14px">
+          可视化界面，填地址+点按钮即可，适合不熟悉命令行的员工
+        </p>
+        <a href="/collect-ui.exe" download="collect-ui.exe" class="dl-btn primary">⬇ 下载 collect-ui.exe (31KB)</a>
+      </div>
+      <div class="dl-card secondary">
+        <b style="color:#5a6b7f; font-size:15px; display:block; margin-bottom:8px">⌨️ 控制台版</b>
+        <p style="color:#8494a7; font-size:12px; line-height:1.6; margin-bottom:14px">
+          命令行程序，支持参数自动化，适合 IT 批量下发
+        </p>
+        <a href="/collect.exe" download="collect.exe" class="dl-btn secondary">⬇ 下载 collect.exe (19KB)</a>
+      </div>
     </div>
     <div style="max-width:620px; margin:10px auto 0; background:#f7f9fc; border-radius:10px; padding:18px 24px; font-size:14px; line-height:2.1; color:#47586b">
-      <b style="color:#1e5799">第二步：</b>双击运行下载的 <b>collect.exe</b><br>
+      <b style="color:#1e5799">第二步：</b>双击运行下载的程序<br>
       <b style="color:#1e5799">第三步：</b>浏览器会自动打开本电脑的信息确认页，核对后填写<b>使用人</b>和<b>部门</b>，点提交即完成
     </div>
     <div style="max-width:620px; margin:14px auto 0; background:#fff8ec; border:1px solid #ffe3a8; border-radius:10px; padding:14px 20px; font-size:13px; color:#8a6d3b; line-height:1.8">

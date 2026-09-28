@@ -58,6 +58,12 @@
   .btn:hover { border-color: #3b82f6; color: #1e5799; }
   .btn.primary { background: linear-gradient(135deg, #1e5799, #2989d8); color: #fff; border: none; font-weight: 600; }
   .btn.primary:hover { opacity: .9; color: #fff; }
+  .export-range { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #8494a7; }
+  .date-input {
+    padding: 8px 10px; border: 1px solid #d7dee8; border-radius: 8px; font-size: 13px;
+    outline: none; color: #47586b; font-family: inherit;
+  }
+  .date-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
   .stat-cards { display: flex; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
   .stat {
     background: #fff; border-radius: 10px; padding: 14px 22px; box-shadow: 0 1px 3px rgba(0,0,0,.05);
@@ -130,6 +136,12 @@
     <input type="text" class="search-box" id="q" placeholder="搜索主机名 / 使用人 / 部门 / 品牌 / 型号 / 序列号...">
     <button class="btn" id="btn-search">查询</button>
     <button class="btn" id="btn-refresh">刷新</button>
+    <span class="export-range">
+      导出范围
+      <input type="date" id="export-from" class="date-input">
+      <span>至</span>
+      <input type="date" id="export-to" class="date-input">
+    </span>
     <button class="btn primary" id="btn-export">⬇ 导出 Excel</button>
   </div>
 
@@ -244,14 +256,20 @@ $('btn-search').addEventListener('click', loadRecords);
 $('q').addEventListener('keydown', e => { if (e.key === 'Enter') loadRecords(); });
 $('btn-refresh').addEventListener('click', loadRecords);
 
-// 导出 Excel（fetch 方式以便在登录过期时跳转登录页）
+// 导出 Excel（fetch 方式以便在登录过期时跳转登录页，支持时间段筛选）
 $('btn-export').addEventListener('click', async () => {
   const btn = $('btn-export');
+  const from = $('export-from').value;
+  const to = $('export-to').value;
   btn.disabled = true;
   const oldText = btn.textContent;
   btn.textContent = '导出中...';
   try {
-    const r = await api('/admin/export');
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const qs = params.toString();
+    const r = await api('/admin/export' + (qs ? '?' + qs : ''));
     if (!r.ok) return;
     const blob = await r.blob();
     const cd = r.headers.get('content-disposition') || '';

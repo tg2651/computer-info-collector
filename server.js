@@ -191,7 +191,7 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res, filePath) {
     if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
-    if (filePath.endsWith('.exe')) res.setHeader('Content-Disposition', 'attachment; filename="collect.exe"');
+    if (filePath.endsWith('.exe')) res.setHeader('Content-Disposition', 'attachment; filename="' + path.basename(filePath) + '"');
   },
 }));
 
@@ -333,9 +333,22 @@ app.get('/admin', requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// ---------- 后台：导出 Excel（需登录） ----------
+// ---------- 后台：导出 Excel（需登录，支持时间段筛选） ----------
 app.get('/admin/export', requireAdmin, async (req, res) => {
-  const rows = db.prepare('SELECT * FROM records ORDER BY reported_at DESC').all();
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+  const from = dateRe.test(s(req.query.from, 10)) ? s(req.query.from, 10) : '';
+  const to = dateRe.test(s(req.query.to, 10)) ? s(req.query.to, 10) : '';
+  let rows;
+  if (from && to) {
+    rows = db.prepare('SELECT * FROM records WHERE reported_at >= ? AND reported_at <= ? ORDER BY reported_at DESC')
+      .all(from + ' 00:00:00', to + ' 23:59:59');
+  } else if (from) {
+    rows = db.prepare('SELECT * FROM records WHERE reported_at >= ? ORDER BY reported_at DESC').all(from + ' 00:00:00');
+  } else if (to) {
+    rows = db.prepare('SELECT * FROM records WHERE reported_at <= ? ORDER BY reported_at DESC').all(to + ' 23:59:59');
+  } else {
+    rows = db.prepare('SELECT * FROM records ORDER BY reported_at DESC').all();
+  }
 
   const wb = new ExcelJS.Workbook();
   wb.creator = '计算机信息收集系统';
@@ -424,7 +437,8 @@ app.get('/admin/export', requireAdmin, async (req, res) => {
 
   const d = new Date();
   const p = (n) => String(n).padStart(2, '0');
-  const filename = `计算机信息_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}.xlsx`;
+  const datePart = (from && to) ? `${from.replace(/-/g, '')}-${to.replace(/-/g, '')}` : `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
+  const filename = `计算机信息_${datePart}.xlsx`;
 
   const buffer = await wb.xlsx.writeBuffer();
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
