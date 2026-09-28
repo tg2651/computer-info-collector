@@ -98,22 +98,52 @@ nginx -t && systemctl reload nginx
 
 ### 2. 员工侧采集
 
-把 `collect.ps1` 或 `collect.exe` 通过内网共享/OA 系统下发给员工，员工双击运行即可。运行后：
+提供三种采集器，按场景选用：
+
+| 采集器 | 适用场景 | 特点 |
+|---|---|---|
+| `collect.ps1` | PowerShell 未被禁用 | 脚本无需编译，双击即跑 |
+| `collect.exe` | PowerShell 被禁用 / 需要批量下发 | 控制台程序，支持命令行参数，适合脚本自动化 |
+| `collect-ui.exe` | 员工自行配置 / 首次部署 | **图形界面**，地址输入框 + 测试连接 + 采集按钮，零门槛 |
+
+#### collect-ui.exe 图形界面版（推荐给员工）
+
+双击打开后界面包含：
+- **服务端地址**输入框（自动读取同目录 `server.txt`）
+- **测试连接**按钮：验证服务器是否可达（5 秒超时，2xx/3xx/4xx 算成功，5xx 或网络错误算失败）
+- **保存配置**按钮：把当前地址写入 `server.txt`
+- **运行日志**区：实时显示采集进度（黑底白字）
+- **开始采集**按钮：执行采集+上报（后台线程，UI 不卡死）
+- **打开登记页**按钮：采集成功后启用，点击打开浏览器让员工填写使用人/部门
+
+使用流程：
+1. 双击 `collect-ui.exe`
+2. 填入服务端地址（如 `http://192.168.1.100`）
+3. 点 **测试连接** 确认服务器可达
+4. 点 **保存配置**（下次启动自动读取）
+5. 点 **开始采集**，等日志显示"采集上报成功"
+6. 点 **打开登记页**，在浏览器里填写使用人和部门
+
+#### 控制台版（collect.exe / collect.ps1）
+
+运行后：
 1. 控制台显示采集进度
 2. 自动 POST 到服务器
 3. 自动打开浏览器跳转登记页，员工填入"使用人"和"部门"点提交即可
 
 #### 服务器地址配置
 
-无论是 `collect.ps1` 还是 `collect.exe`，都支持三种方式指定服务器地址（按优先级）：
+三种采集器都支持以下方式指定服务器地址（按优先级）：
 
-| 优先级 | 方式 | 示例 |
-|---|---|---|
-| 1 | 命令行参数 | `collect.exe http://192.168.1.100` |
-| 2 | 同目录 `server.txt` 文件 | 第一行写 `http://192.168.1.100` |
-| 3 | 首次运行交互输入 | 控制台提示后输入，自动保存到 `server.txt` |
+| 优先级 | 方式 | collect.exe 示例 | collect.ps1 示例 |
+|---|---|---|---|
+| 1 | 命令行参数 | `collect.exe http://192.168.1.100` | `.\collect.ps1 -ServerUrl http://192.168.1.100` |
+| 2 | 同目录 `server.txt` 文件 | 第一行写 `http://192.168.1.100` | 同左 |
+| 3 | 首次运行交互输入 | 控制台提示后输入，自动保存到 `server.txt` | 同左 |
 
-> 推荐方式 2：IT 把 `collect.exe` 和 `server.txt` 一起打包发给员工，员工零配置直接双击。
+> `collect-ui.exe` 在输入框里填地址 + 点"保存配置"即可，等价于写入 `server.txt`。
+>
+> 推荐方式 2：IT 把 `collect.exe`（或 `collect-ui.exe`）和 `server.txt` 一起打包发给员工，员工零配置直接双击。
 
 `server.txt` 格式：
 ```
@@ -121,20 +151,31 @@ http://192.168.1.100
 # 井号开头的行是注释，可以写说明
 ```
 
-### 3. 编译 collect.exe（可选）
+### 3. 编译采集器（可选）
 
-仓库**不包含**编译好的 `collect.exe`，请按需自行编译。Win7+ 自带的 .NET Framework 4 已附带 `csc.exe`，无需安装任何 SDK：
+仓库**不包含**编译好的 `collect.exe` / `collect-ui.exe`，请按需自行编译。Win7+ 自带的 .NET Framework 4 已附带 `csc.exe`，无需安装任何 SDK：
 
 ```bat
-:: 用系统自带的 .NET Framework 4 编译器
+:: 控制台版
 C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe ^
   /nologo /platform:anycpu ^
   /r:System.Management.dll ^
   /out:collect.exe ^
   collector-src\collect.cs
+
+:: 图形界面版（需额外引用 System.Windows.Forms 和 System.Drawing）
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe ^
+  /nologo /platform:anycpu ^
+  /r:System.Management.dll ^
+  /r:System.Windows.Forms.dll ^
+  /r:System.Drawing.dll ^
+  /out:collect-ui.exe ^
+  collector-src\collect-ui.cs
 ```
 
-输出 `collect.exe` 约 19KB，无外部依赖，所有 Windows 7 SP1+ / Win10 / Win11 均可直接运行。
+- `collect.exe` 约 19KB，无外部依赖
+- `collect-ui.exe` 约 24KB，无外部依赖
+- 所有 Windows 7 SP1+ / Win10 / Win11 均可直接运行
 
 ## 后台使用
 
@@ -158,7 +199,8 @@ C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe ^
 │   └── login.html            # 管理员登录页
 ├── collect.ps1               # PowerShell 采集器
 ├── collector-src/
-│   └── collect.cs            # C# 采集器源码（编译为 collect.exe）
+│   ├── collect.cs            # C# 控制台采集器源码（编译为 collect.exe）
+│   └── collect-ui.cs         # C# WinForms 图形界面采集器源码（编译为 collect-ui.exe）
 ├── deploy/                   # 部署辅助脚本
 │   ├── setup.sh              # 服务器一键安装
 │   ├── 第一步-安装密钥.bat    # 安装 SSH 公钥到服务器（需先填入服务器 IP）

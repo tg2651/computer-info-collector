@@ -20,8 +20,9 @@ deploy/bin/
 deploy/pkg/
 deploy/*.tar.gz
 
-# === Compiled collector binary (users compile their own from collector-src/) ===
+# === Compiled collector binaries (users compile their own from collector-src/) ===
 public/collect.exe
+public/collect-ui.exe
 
 # === Local helper scripts (not part of the project) ===
 genkey.bat
