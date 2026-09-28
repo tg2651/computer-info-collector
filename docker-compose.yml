@@ -1,0 +1,28 @@
+# 计算机信息收集系统 - 飞牛 NAS / 任意 Docker 主机部署
+#
+# 使用方式：
+#   1) 在飞牛 Docker 管理 UI 创建项目，选一个空文件夹，把本文件内容粘到 compose 框里
+#   2) 点"构建" / "部署"，等容器拉起
+#   3) 浏览器访问 http://<NAS_IP>:3000/admin/login
+#      默认账号 admin / admin123，登录后立即改密码
+#
+# 默认使用 ghcr.io 预构建镜像（amd64+arm64），无需本地编译。
+# 若想改用本地构建：注释掉 image: 那行，放开下面 build: 那行。
+
+services:
+  collector:
+    # 预构建镜像，飞牛直接 pull
+    image: ghcr.io/tg2651/computer-info-collector:latest
+    # 本地构建（飞牛上会慢几分钟，better-sqlite3 需编译）
+    # build: .
+    container_name: computer-info-collector
+    ports:
+      - "3000:3000"
+    volumes:
+      # 数据库文件落在宿主机的 ./data 目录，重建容器不丢数据
+      - ./data:/app/data
+    environment:
+      - TZ=Asia/Shanghai
+      # 如需改端口（飞牛 3000 被占用），把上面 ports 改 "3001:3000" 即可，无需改 PORT
+      # - PORT=3000
+    restart: unless-stopped

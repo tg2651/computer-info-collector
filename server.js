@@ -6,9 +6,11 @@ const ExcelJS = require('exceljs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+// 数据库目录：本地默认写在项目根目录，Docker 通过 DATA_DIR=/app/data 挂卷持久化
+const DATA_DIR = process.env.DATA_DIR || __dirname;
 
 // ---------- 数据库 ----------
-const db = new Database(path.join(__dirname, 'data.db'));
+const db = new Database(path.join(DATA_DIR, 'data.db'));
 db.pragma('journal_mode = WAL');
 db.exec(`
 CREATE TABLE IF NOT EXISTS records (

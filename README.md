@@ -43,7 +43,83 @@
 
 ## 快速开始
 
-### 1. 服务端部署（Linux）
+### 1. 飞牛 NAS / Docker 部署（推荐）
+
+如果手上有飞牛 NAS（fnOS）或任何支持 Docker 的主机，这是最省事的部署方式——不用装 Node.js、不用编译、不用配 systemd，一条 docker-compose 起来就能用。
+
+#### 镜像地址
+
+```
+ghcr.io/tg2651/computer-info-collector:latest
+```
+
+镜像由 GitHub Actions 自动构建，同时支持 `linux/amd64` 和 `linux/arm64`，覆盖飞牛常见机型（含 N1 盒子、ARM NAS）。
+
+#### 飞牛 UI 部署步骤
+
+1. 在飞牛文件管理里建一个空目录，例如 `/vol1/1000/docker/collector`
+2. 进入「应用 - Docker」→「项目」→「创建」
+3. 选刚才那个目录，把下面的 compose 内容粘进去，点「构建」：
+
+```yaml
+services:
+  collector:
+    image: ghcr.io/tg2651/computer-info-collector:latest
+    container_name: computer-info-collector
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TZ=Asia/Shanghai
+    restart: unless-stopped
+```
+
+4. 容器拉起后访问 `http://<飞牛IP>:3000/admin/login`
+5. 默认账号 `admin` / `admin123`，**登录后立即改密码**（页面右上角"修改密码"）
+
+数据落在飞牛目录的 `./data/` 下，重建容器数据不丢。仓库根目录的 [`docker-compose.yml`](docker-compose.yml) 是同款内容，可以直接下载后上传到飞牛。
+
+#### 其他 Docker 主机
+
+任何装了 Docker 的机器（Linux/Mac/Windows）都能用同样的 compose 文件部署：
+
+```bash
+curl -LO https://raw.githubusercontent.com/tg2651/computer-info-collector/main/docker-compose.yml
+docker compose up -d
+docker compose logs -f
+```
+
+#### 镜像标签说明
+
+| 标签 | 含义 |
+|---|---|
+| `:latest` | 主分支最新构建，跟随 main 推送 |
+| `:1.0.0` / `:1.0` / `:1` | 打 git tag `v1.0.0` 时附带生成，方便锁版本 |
+| `:sha-<短哈希>` | 每次构建对应的 commit 短哈希，可追溯 |
+
+#### 在飞牛上本地构建（可选，访问 ghcr 慢时）
+
+把整个仓库（含 Dockerfile）上传到飞牛目录，在 compose 里把 `build: .` 放开、`image:` 注释掉，再点构建即可。首次构建会装 python3/make/g++ 编译 better-sqlite3，amd64 机型约 2-3 分钟，ARM 机型约 5-10 分钟。
+
+```yaml
+services:
+  collector:
+    build: .
+    # image: ghcr.io/tg2651/computer-info-collector:latest
+    container_name: computer-info-collector
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TZ=Asia/Shanghai
+    restart: unless-stopped
+```
+
+> 飞牛若拉取镜像超时，可在 Docker 配置里加国内镜像源：`https://docker.1ms.run`、`https://docker.1panel.live` 等。
+
+### 2. 服务端部署（裸机 Linux）
 
 详见 [`deploy/setup.sh`](deploy/setup.sh)。简要步骤（CentOS 7 / Ubuntu / Debian 通用）：
 
@@ -96,7 +172,7 @@ nginx -t && systemctl reload nginx
 
 > ⚠️ 强烈建议在 nginx 启用 HTTPS（Let's Encrypt 免费证书），否则员工上报的硬件信息和 Cookie 都将明文传输。
 
-### 2. 员工侧采集
+### 3. 员工侧采集
 
 提供三种采集器，按场景选用：
 
@@ -150,7 +226,7 @@ http://192.168.1.100
 # 井号开头的行是注释，可以写说明
 ```
 
-### 3. 编译采集器（可选）
+### 4. 编译采集器（可选）
 
 仓库**不包含**编译好的 `collect.exe` / `collect-ui.exe`，请按需自行编译。Win7+ 自带的 .NET Framework 4 已附带 `csc.exe`，无需安装任何 SDK：
 
@@ -205,6 +281,11 @@ C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe ^
 │   ├── 第一步-安装密钥.bat    # 安装 SSH 公钥到服务器（需先填入服务器 IP）
 │   └── fix-v12.sh            # CentOS 7 上从源码编译 better-sqlite3 v12
 ├── 启动服务.bat               # Windows 本地开发启动脚本（用 runtime/ 里的便携 Node）
+├── Dockerfile                # 多阶段构建镜像（builder 编译 better-sqlite3 + runtime 最小化）
+├── docker-compose.yml        # 飞牛 NAS / Docker 主机一键部署
+├── .dockerignore             # Docker 构建上下文排除规则
+├── .github/workflows/
+│   └── docker.yml            # GitHub Actions 多架构构建推送到 ghcr.io
 ├── .gitignore
 ├── LICENSE
 └── README.md

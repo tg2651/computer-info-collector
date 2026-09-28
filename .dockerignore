@@ -1,0 +1,61 @@
+# === VCS / CI ===
+.git
+.github
+.gitignore
+.gitattributes
+
+# === 依赖与运行时（容器内自己装） ===
+# package-lock.json 必须保留，用于容器内锁定依赖版本
+node_modules/
+
+# === 本地便携 Node（开发用） ===
+runtime/
+
+# === SQLite 数据库文件（不进镜像，由卷挂载提供） ===
+data.db
+data.db-shm
+data.db-wal
+./data/
+
+# === 采集器编译产物（用户自行编译，进镜像无意义） ===
+public/collect.exe
+public/collect-ui.exe
+
+# === 采集器源码与脚本（员工电脑用，不进服务端镜像） ===
+collector-src/
+collect.ps1
+
+# === 部署辅助脚本（含可能的密钥，绝不能进镜像） ===
+deploy/
+deploy/key/
+deploy/bin/
+deploy/pkg/
+
+# === 本地开发脚本 ===
+启动服务.bat
+genkey.bat
+
+# === 文档与元数据（镜像里不需要） ===
+README.md
+LICENSE
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# === IDE / 系统 ===
+.vscode/
+.idea/
+*.suo
+*.user
+*.swp
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# === 日志与临时文件 ===
+*.log
+*.tmp
+*.bak
+
+# === 飞牛 / 本地构建产物 ===
+docker-compose.override.yml
