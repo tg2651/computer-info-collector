@@ -17,11 +17,9 @@ data.db-shm
 data.db-wal
 ./data/
 
-# === 采集器编译产物（用户自行编译，进镜像无意义） ===
-public/collect.exe
-public/collect-ui.exe
-
-# === 采集器源码与脚本（员工电脑用，不进服务端镜像） ===
+# === 采集器源码（员工电脑用，不进服务端镜像） ===
+# 注意：编译产物 public/*.exe 不排除 —— CI 在 Windows runner 上编译后，
+# 通过 artifact 放到 public/，docker build 时打进镜像供员工下载
 collector-src/
 collect.ps1
 

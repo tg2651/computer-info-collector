@@ -10,6 +10,7 @@ on:
       - server.js
       - package.json
       - public/**
+      - collector-src/**
       - .github/workflows/docker.yml
     tags: ['v*']
   workflow_dispatch:
@@ -20,11 +21,59 @@ permissions:
   packages: write
 
 jobs:
+  # Job 1：在 Windows runner 上用 .NET Framework csc 编译采集器 exe
+  # 仓库不含 exe（保持干净），但镜像需要 exe 供员工下载
+  build-exe:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 编译 collect.exe（控制台版）
+        working-directory: collector-src
+        shell: pwsh
+        run: |
+          $csc = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+          & $csc /nologo /platform:anycpu `
+            /r:System.Management.dll `
+            /out:..\public\collect.exe collect.cs
+
+      - name: 编译 collect-ui.exe（图形界面版）
+        working-directory: collector-src
+        shell: pwsh
+        run: |
+          $csc = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+          & $csc /nologo /platform:anycpu `
+            /r:System.Management.dll `
+            /r:System.Windows.Forms.dll `
+            /r:System.Drawing.dll `
+            /out:..\public\collect-ui.exe collect-ui.cs
+
+      - name: 上传采集器 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: collector-exe
+          path: public/*.exe
+          if-no-files-found: error
+          retention-days: 1
+
+  # Job 2：下载 exe 放到 public/，多架构构建并推送镜像
   build-and-push:
+    needs: build-exe
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: 下载采集器 exe（来自 Windows 编译 job）
+        uses: actions/download-artifact@v4
+        with:
+          name: collector-exe
+          path: public/
+
+      - name: 确认 exe 已就位
+        shell: bash
+        run: ls -lh public/*.exe
 
       - name: Set up QEMU（多架构模拟）
         uses: docker/setup-qemu-action@v3
