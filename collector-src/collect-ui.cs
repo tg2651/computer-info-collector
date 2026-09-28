@@ -4,7 +4,7 @@
 //    1) Configure the server URL (saved to server.txt)
 //    2) Test connectivity to the server
 //    3) Collect hardware/OS/software info and report to server
-//    4) Open the registration page in the default browser
+//    4) Auto-open the registration page in default browser, then exit
 //
 //  Visual style: flat design with rounded corners, card layout,
 //  minimal visual noise, consistent color palette.
@@ -206,7 +206,7 @@ internal class RoundedInput : RoundedPanel
 internal class CollectorForm : Form
 {
     private RoundedInput txtServer;
-    private FlatButton btnTest, btnSave, btnCollect, btnOpen;
+    private FlatButton btnTest, btnSave, btnCollect;
     private TextBox txtLog;
     private Label lblStatus;
     private Panel statusDot;
@@ -379,25 +379,13 @@ internal class CollectorForm : Form
         btnCollect = new FlatButton
         {
             Text = "开始采集",
-            Location = new Point(134, 460),
+            Location = new Point(134, 500),
             Size = new Size(240, 42),
             Font = new Font("Microsoft YaHei", 11F, FontStyle.Bold),
             IsSecondary = false
         };
         btnCollect.Click += (s, e) => StartCollect();
         card.Controls.Add(btnCollect);
-
-        btnOpen = new FlatButton
-        {
-            Text = "打开登记页",
-            Location = new Point(174, 512),
-            Size = new Size(160, 30),
-            Font = new Font("Microsoft YaHei", 9F),
-            IsSecondary = true,
-            Enabled = false
-        };
-        btnOpen.Click += (s, e) => OpenRegistrationPage();
-        card.Controls.Add(btnOpen);
 
         // ====== 事件 ======
         Load += (s, e) => LoadConfig();
@@ -608,8 +596,6 @@ internal class CollectorForm : Form
     }
 
     // ---------------- 开始采集（后台线程） ----------------
-    private string lastRecordId = "";
-
     private void StartCollect()
     {
         string url = txtServer.TextValue.Trim().TrimEnd('/');
@@ -620,7 +606,6 @@ internal class CollectorForm : Form
         }
         serverUrl = url;
         SetButtons(false);
-        btnOpen.Enabled = false;
         SetStatus("采集中...", Theme.Warning);
         txtLog.Clear();
         Log("==============================================");
@@ -632,13 +617,19 @@ internal class CollectorForm : Form
             try
             {
                 string id = DoCollectAndReport(serverUrl);
-                lastRecordId = id;
                 Log("");
                 Log("[OK] 采集上报成功! 记录 ID: " + id);
-                SetStatus("采集完成", Theme.Success);
-                SetButtons(true);
-                btnOpen.Enabled = true;
-                Log("点击下方『打开登记页』按钮填写使用人和部门。");
+                SetStatus("采集成功，正在打开登记页...", Theme.Success);
+                Log("正在打开浏览器...");
+                try
+                {
+                    string regUrl = serverUrl + "/?id=" + Uri.EscapeDataString(id);
+                    System.Diagnostics.Process.Start(regUrl);
+                    Log("已打开登记页: " + regUrl);
+                }
+                catch (Exception ex2) { Log("打开浏览器失败: " + ex2.Message); }
+                System.Threading.Thread.Sleep(1500);
+                this.Invoke(new Action(delegate { this.Close(); }));
             }
             catch (Exception ex)
             {
@@ -651,25 +642,6 @@ internal class CollectorForm : Form
         });
         t.IsBackground = true;
         t.Start();
-    }
-
-    private void OpenRegistrationPage()
-    {
-        if (lastRecordId.Length == 0)
-        {
-            MessageBox.Show("还没有采集记录，请先点击『开始采集』", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-        try
-        {
-            string url = serverUrl + "/?id=" + Uri.EscapeDataString(lastRecordId);
-            System.Diagnostics.Process.Start(url);
-            Log("已打开登记页: " + url);
-        }
-        catch (Exception ex)
-        {
-            Log("打开浏览器失败: " + ex.Message);
-        }
     }
 
     // ==================== 采集逻辑 ====================
