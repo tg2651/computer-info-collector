@@ -1,22 +1,24 @@
 // ==============================================================
-//  Computer Info Collector - WinForms GUI edition
-//  Provides a graphical interface for:
-//    1) Configuring the server URL (saved to server.txt)
-//    2) Testing connectivity to the server
-//    3) Collecting hardware/OS/software info and reporting to server
-//    4) Opening the registration page in the default browser
+//  Computer Info Collector - WinForms GUI edition (Flat Design)
+//  Features:
+//    1) Configure the server URL (saved to server.txt)
+//    2) Test connectivity to the server
+//    3) Collect hardware/OS/software info and report to server
+//    4) Open the registration page in the default browser
+//
+//  Visual style: flat design with rounded corners, card layout,
+//  minimal visual noise, consistent color palette.
 //
 //  Requires: .NET Framework 4.0+ (preinstalled on Win7+)
 //  Build:
 //    csc /nologo /platform:anycpu /r:System.Management.dll ^
 //        /r:System.Windows.Forms.dll /r:System.Drawing.dll ^
 //        /out:collect-ui.exe collect-ui.cs
-//
-//  Console version (collect.exe) is also available for scripted use.
 // ==============================================================
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Management;
 using System.Net;
@@ -25,86 +27,391 @@ using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
+// ==================== 主题色彩 ====================
+internal static class Theme
+{
+    public static readonly Color WindowBg = ColorTranslator.FromHtml("#F0F2F5");
+    public static readonly Color Card = Color.White;
+    public static readonly Color Primary = ColorTranslator.FromHtml("#0078D4");
+    public static readonly Color PrimaryHover = ColorTranslator.FromHtml("#106EBE");
+    public static readonly Color PrimaryDown = ColorTranslator.FromHtml("#005A9E");
+    public static readonly Color PrimaryLight = ColorTranslator.FromHtml("#C7E0F4");
+    public static readonly Color SecondaryBg = Color.White;
+    public static readonly Color SecondaryBorder = ColorTranslator.FromHtml("#0078D4");
+    public static readonly Color Text = ColorTranslator.FromHtml("#1F2937");
+    public static readonly Color TextSecondary = ColorTranslator.FromHtml("#6B7280");
+    public static readonly Color TextHint = ColorTranslator.FromHtml("#9CA3AF");
+    public static readonly Color Border = ColorTranslator.FromHtml("#D1D5DB");
+    public static readonly Color BorderFocus = ColorTranslator.FromHtml("#0078D4");
+    public static readonly Color Divider = ColorTranslator.FromHtml("#E5E7EB");
+    public static readonly Color LogBg = ColorTranslator.FromHtml("#1E1E1E");
+    public static readonly Color LogText = ColorTranslator.FromHtml("#D4D4D4");
+    public static readonly Color LogDim = ColorTranslator.FromHtml("#6A9955");
+    public static readonly Color Success = ColorTranslator.FromHtml("#10B981");
+    public static readonly Color Error = ColorTranslator.FromHtml("#EF4444");
+    public static readonly Color Warning = ColorTranslator.FromHtml("#F59E0B");
+    public static readonly Color Idle = ColorTranslator.FromHtml("#6B7280");
+}
+
+// ==================== 圆角工具 ====================
+internal static class UI
+{
+    public static GraphicsPath RoundRect(Rectangle r, int radius)
+    {
+        GraphicsPath path = new GraphicsPath();
+        if (radius <= 0) { path.AddRectangle(r); return path; }
+        int d = radius * 2;
+        if (d > r.Width) d = r.Width;
+        if (d > r.Height) d = r.Height;
+        radius = d / 2;
+        path.AddArc(r.X, r.Y, d, d, 180, 90);
+        path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+        path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+        path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+}
+
+// ==================== 圆角扁平按钮 ====================
+internal class FlatButton : Button
+{
+    public int Radius { get; set; }
+    public bool IsSecondary { get; set; }
+    private bool hovering = false;
+    private bool pressing = false;
+
+    public FlatButton()
+    {
+        Radius = 6;
+        IsSecondary = false;
+        FlatStyle = FlatStyle.Flat;
+        FlatAppearance.BorderSize = 0;
+        DoubleBuffered = true;
+        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
+        Cursor = Cursors.Hand;
+    }
+
+    protected override void OnMouseEnter(EventArgs e) { hovering = true; Invalidate(); base.OnMouseEnter(e); }
+    protected override void OnMouseLeave(EventArgs e) { hovering = false; pressing = false; Invalidate(); base.OnMouseLeave(e); }
+    protected override void OnMouseDown(MouseEventArgs e) { if (e.Button == MouseButtons.Left) { pressing = true; Invalidate(); } base.OnMouseDown(e); }
+    protected override void OnMouseUp(MouseEventArgs e) { pressing = false; Invalidate(); base.OnMouseUp(e); }
+    protected override void OnEnabledChanged(EventArgs e) { Invalidate(); base.OnEnabledChanged(e); }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        Graphics g = e.Graphics;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        Rectangle rect = new Rectangle(0, 0, Width - 1, Height - 1);
+        using (GraphicsPath path = UI.RoundRect(rect, Radius))
+        {
+            if (IsSecondary)
+            {
+                // 次按钮: 白底 + 蓝边 + 蓝字
+                Color bg = Enabled ? (pressing ? Color.FromArgb(0xF3, 0xF9, 0xFF) : (hovering ? Color.FromArgb(0xEB, 0xF5, 0xFF) : Color.White)) : Color.FromArgb(0xF3, 0xF4, 0xF6);
+                Color bd = Enabled ? (hovering ? Theme.PrimaryDown : Theme.SecondaryBorder) : Color.FromArgb(0xD1, 0xD5, 0xDB);
+                Color tx = Enabled ? (hovering ? Theme.PrimaryDown : Theme.Primary) : Color.FromArgb(0x9C, 0xA3, 0xAF);
+                using (Brush b = new SolidBrush(bg)) g.FillPath(b, path);
+                using (Pen p = new Pen(bd, 1.5f)) g.DrawPath(p, path);
+                TextRenderer.DrawText(g, Text, Font, rect, tx, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            }
+            else
+            {
+                // 主按钮: 实色填充 + 白字
+                Color c = Theme.Primary;
+                if (!Enabled) c = Color.FromArgb(0xBD, 0xE4, 0xF8);
+                else if (pressing) c = Theme.PrimaryDown;
+                else if (hovering) c = Theme.PrimaryHover;
+                using (Brush b = new SolidBrush(c)) g.FillPath(b, path);
+                TextRenderer.DrawText(g, Text, Font, rect, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            }
+        }
+    }
+}
+
+// ==================== 圆角面板 ====================
+internal class RoundedPanel : Panel
+{
+    public int Radius { get; set; }
+    public Color BorderColor { get; set; }
+    public new Color BackColor { get { return base.BackColor; } set { base.BackColor = value; } }
+
+    public RoundedPanel()
+    {
+        Radius = 8;
+        BorderColor = Color.Empty;
+        DoubleBuffered = true;
+        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
+    }
+
+    protected override void OnResize(EventArgs e)
+    {
+        base.OnResize(e);
+        if (Radius > 0)
+        {
+            try { this.Region = new Region(UI.RoundRect(new Rectangle(0, 0, Width, Height), Radius)); }
+            catch { }
+        }
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        Graphics g = e.Graphics;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        Rectangle rect = new Rectangle(0, 0, Width - 1, Height - 1);
+        using (GraphicsPath path = UI.RoundRect(rect, Radius))
+        {
+            using (Brush b = new SolidBrush(base.BackColor)) g.FillPath(b, path);
+            if (BorderColor != Color.Empty)
+            {
+                using (Pen p = new Pen(BorderColor, 1)) g.DrawPath(p, path);
+            }
+        }
+    }
+}
+
+// ==================== 圆角输入框容器 ====================
+internal class RoundedInput : RoundedPanel
+{
+    public TextBox Inner { get; private set; }
+    private bool focused = false;
+
+    public RoundedInput()
+    {
+        Radius = 6;
+        base.BackColor = Color.White;
+        BorderColor = Theme.Border;
+        Inner = new TextBox
+        {
+            BorderStyle = BorderStyle.None,
+            Location = new Point(10, 8),
+            Font = new Font("Microsoft YaHei", 9.5F),
+            BackColor = Color.White,
+            ForeColor = Theme.Text
+        };
+        Inner.GotFocus += (s, e) => { focused = true; BorderColor = Theme.BorderFocus; Invalidate(); };
+        Inner.LostFocus += (s, e) => { focused = false; BorderColor = Theme.Border; Invalidate(); };
+        Controls.Add(Inner);
+        Resize += (s, e) => { Inner.Width = Width - 20; Inner.Height = Height - 16; };
+    }
+
+    public string TextValue
+    {
+        get { return Inner.Text; }
+        set { Inner.Text = value; }
+    }
+}
+
+// ==================== 主窗体 ====================
 internal class CollectorForm : Form
 {
-    private TextBox txtServer;
-    private Button btnTest, btnSave, btnCollect, btnOpen;
+    private RoundedInput txtServer;
+    private FlatButton btnTest, btnSave, btnCollect, btnOpen;
     private TextBox txtLog;
     private Label lblStatus;
+    private Panel statusDot;
     private string serverUrl = "";
 
     public CollectorForm()
     {
         Text = "计算机信息采集器";
-        ClientSize = new Size(540, 580);
+        ClientSize = new Size(540, 620);
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
         MinimizeBox = false;
         Font = new Font("Microsoft YaHei", 9F);
+        BackColor = Theme.WindowBg;
 
-        // --- 顶部：服务端地址配置区 ---
-        var lblServer = new Label { Text = "服务端地址:", Location = new Point(20, 22), AutoSize = true };
-        txtServer = new TextBox { Location = new Point(110, 18), Size = new Size(300, 23) };
-        btnTest = new Button { Text = "测试连接", Location = new Point(420, 17), Size = new Size(100, 25) };
+        // ====== 卡片容器 ======
+        RoundedPanel card = new RoundedPanel
+        {
+            Location = new Point(16, 16),
+            Size = new Size(508, 588),
+            Radius = 12,
+            BackColor = Theme.Card
+        };
+        Controls.Add(card);
+
+        // ====== 标题 ======
+        var lblTitle = new Label
+        {
+            Text = "计算机信息采集器",
+            Location = new Point(28, 24),
+            Size = new Size(300, 26),
+            Font = new Font("Microsoft YaHei", 14F, FontStyle.Bold),
+            ForeColor = Theme.Text,
+            BackColor = Theme.Card
+        };
+        card.Controls.Add(lblTitle);
+
+        var lblSubtitle = new Label
+        {
+            Text = "配置服务端地址并采集本机信息",
+            Location = new Point(28, 52),
+            Size = new Size(300, 18),
+            Font = new Font("Microsoft YaHei", 9F),
+            ForeColor = Theme.TextSecondary,
+            BackColor = Theme.Card
+        };
+        card.Controls.Add(lblSubtitle);
+
+        // ====== 分隔线 ======
+        var divider = new Panel
+        {
+            Location = new Point(28, 80),
+            Size = new Size(452, 1),
+            BackColor = Theme.Divider
+        };
+        card.Controls.Add(divider);
+
+        // ====== 服务端地址 ======
+        var lblServer = new Label
+        {
+            Text = "服务端地址",
+            Location = new Point(28, 94),
+            Size = new Size(200, 18),
+            Font = new Font("Microsoft YaHei", 9F, FontStyle.Bold),
+            ForeColor = Theme.Text,
+            BackColor = Theme.Card
+        };
+        card.Controls.Add(lblServer);
+
+        txtServer = new RoundedInput
+        {
+            Location = new Point(28, 116),
+            Size = new Size(352, 34)
+        };
+        card.Controls.Add(txtServer);
+
+        btnTest = new FlatButton
+        {
+            Text = "测试连接",
+            Location = new Point(388, 116),
+            Size = new Size(100, 34),
+            Font = new Font("Microsoft YaHei", 9F),
+            IsSecondary = true
+        };
         btnTest.Click += (s, e) => TestConnection();
+        card.Controls.Add(btnTest);
 
-        btnSave = new Button { Text = "保存配置", Location = new Point(110, 50), Size = new Size(100, 25) };
+        btnSave = new FlatButton
+        {
+            Text = "保存配置",
+            Location = new Point(28, 158),
+            Size = new Size(110, 30),
+            Font = new Font("Microsoft YaHei", 9F),
+            IsSecondary = true
+        };
         btnSave.Click += (s, e) => SaveConfig();
-        var lblHint = new Label { Text = "保存到同目录 server.txt，下次启动自动读取", Location = new Point(220, 54), AutoSize = true, ForeColor = Color.Gray };
+        card.Controls.Add(btnSave);
 
-        // --- 状态栏 ---
+        var lblHint = new Label
+        {
+            Text = "保存到同目录 server.txt，下次自动读取",
+            Location = new Point(146, 164),
+            Size = new Size(300, 18),
+            Font = new Font("Microsoft YaHei", 8.5F),
+            ForeColor = Theme.TextHint,
+            BackColor = Theme.Card
+        };
+        card.Controls.Add(lblHint);
+
+        // ====== 状态栏（圆点+文字） ======
+        statusDot = new Panel
+        {
+            Location = new Point(28, 198),
+            Size = new Size(8, 8),
+            BackColor = Theme.Idle
+        };
+        MakeDotRound(statusDot);
+        card.Controls.Add(statusDot);
+
         lblStatus = new Label
         {
             Text = "就绪",
-            Location = new Point(20, 84),
-            Size = new Size(500, 20),
-            ForeColor = Color.DarkGreen,
-            BackColor = Color.FromArgb(245, 245, 245),
+            Location = new Point(42, 196),
+            Size = new Size(430, 18),
+            Font = new Font("Microsoft YaHei", 9F),
+            ForeColor = Theme.TextSecondary,
+            BackColor = Theme.Card,
             TextAlign = ContentAlignment.MiddleLeft
         };
+        card.Controls.Add(lblStatus);
 
-        // --- 日志区 ---
-        var lblLog = new Label { Text = "运行日志:", Location = new Point(20, 112), AutoSize = true };
+        // ====== 运行日志 ======
+        var lblLog = new Label
+        {
+            Text = "运行日志",
+            Location = new Point(28, 224),
+            Size = new Size(200, 18),
+            Font = new Font("Microsoft YaHei", 9F, FontStyle.Bold),
+            ForeColor = Theme.Text,
+            BackColor = Theme.Card
+        };
+        card.Controls.Add(lblLog);
+
+        // 日志区容器（圆角深色）
+        RoundedPanel logPanel = new RoundedPanel
+        {
+            Location = new Point(28, 246),
+            Size = new Size(452, 196),
+            Radius = 6,
+            BackColor = Theme.LogBg
+        };
+        card.Controls.Add(logPanel);
+
         txtLog = new TextBox
         {
-            Location = new Point(20, 132),
-            Size = new Size(500, 360),
+            Location = new Point(10, 8),
+            Size = new Size(432, 180),
             Multiline = true,
             ReadOnly = true,
+            BorderStyle = BorderStyle.None,
             ScrollBars = ScrollBars.Vertical,
             Font = new Font("Consolas", 9F),
-            BackColor = Color.FromArgb(30, 30, 30),
-            ForeColor = Color.FromArgb(220, 220, 220)
+            BackColor = Theme.LogBg,
+            ForeColor = Theme.LogText
         };
+        logPanel.Controls.Add(txtLog);
 
-        // --- 底部按钮 ---
-        btnCollect = new Button
+        // ====== 主按钮 ======
+        btnCollect = new FlatButton
         {
             Text = "开始采集",
-            Location = new Point(160, 505),
-            Size = new Size(160, 40),
+            Location = new Point(134, 460),
+            Size = new Size(240, 42),
             Font = new Font("Microsoft YaHei", 11F, FontStyle.Bold),
-            BackColor = Color.FromArgb(0, 120, 215),
-            ForeColor = Color.White,
-            FlatStyle = FlatStyle.Flat
+            IsSecondary = false
         };
-        btnCollect.FlatAppearance.BorderSize = 0;
         btnCollect.Click += (s, e) => StartCollect();
+        card.Controls.Add(btnCollect);
 
-        btnOpen = new Button
+        btnOpen = new FlatButton
         {
             Text = "打开登记页",
-            Location = new Point(340, 510),
-            Size = new Size(110, 30),
+            Location = new Point(174, 512),
+            Size = new Size(160, 30),
+            Font = new Font("Microsoft YaHei", 9F),
+            IsSecondary = true,
             Enabled = false
         };
         btnOpen.Click += (s, e) => OpenRegistrationPage();
+        card.Controls.Add(btnOpen);
 
-        Controls.AddRange(new Control[] { lblServer, txtServer, btnTest, btnSave, lblHint, lblStatus, lblLog, txtLog, btnCollect, btnOpen });
-
+        // ====== 事件 ======
         Load += (s, e) => LoadConfig();
         FormClosing += (s, e) => SaveConfigSilent();
+    }
+
+    private void MakeDotRound(Panel dot)
+    {
+        dot.Paint += (s, e) =>
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using (Brush b = new SolidBrush(dot.BackColor))
+                e.Graphics.FillEllipse(b, 0, 0, dot.Width - 1, dot.Height - 1);
+        };
     }
 
     // ---------------- 日志输出（线程安全） ----------------
@@ -124,6 +431,8 @@ internal class CollectorForm : Form
         {
             lblStatus.Text = text;
             lblStatus.ForeColor = color;
+            statusDot.BackColor = color;
+            statusDot.Invalidate();
         }
     }
 
@@ -166,7 +475,7 @@ internal class CollectorForm : Form
                         t.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                     {
                         serverUrl = t.TrimEnd('/');
-                        txtServer.Text = serverUrl;
+                        txtServer.TextValue = serverUrl;
                         Log("已从 server.txt 读取服务端地址: " + serverUrl);
                         return;
                     }
@@ -179,10 +488,10 @@ internal class CollectorForm : Form
 
     private void SaveConfig()
     {
-        string url = txtServer.Text.Trim().TrimEnd('/');
+        string url = txtServer.TextValue.Trim().TrimEnd('/');
         if (url.Length == 0)
         {
-            MessageBox.Show("请先填写服务端地址", "提示");
+            MessageBox.Show("请先填写服务端地址", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         try
@@ -194,7 +503,7 @@ internal class CollectorForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show("保存失败: " + ex.Message, "错误");
+            MessageBox.Show("保存失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -202,7 +511,7 @@ internal class CollectorForm : Form
     {
         try
         {
-            string url = txtServer.Text.Trim().TrimEnd('/');
+            string url = txtServer.TextValue.Trim().TrimEnd('/');
             if (url.Length == 0) return;
             string cfg = Path.Combine(AppDir(), "server.txt");
             if (!File.Exists(cfg))
@@ -216,14 +525,14 @@ internal class CollectorForm : Form
     // ---------------- 测试连接 ----------------
     private void TestConnection()
     {
-        string url = txtServer.Text.Trim().TrimEnd('/');
+        string url = txtServer.TextValue.Trim().TrimEnd('/');
         if (url.Length == 0)
         {
-            MessageBox.Show("请先填写服务端地址", "提示");
+            MessageBox.Show("请先填写服务端地址", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         SetButtons(false);
-        SetStatus("测试中...", Color.DarkOrange);
+        SetStatus("测试中...", Theme.Warning);
         Log("正在测试连接 " + url + " ...");
 
         ThreadPool.QueueUserWorkItem(delegate(object state)
@@ -245,12 +554,12 @@ internal class CollectorForm : Form
                         if (code >= 500)
                         {
                             Log("[FAIL] 连接失败: 服务器返回 " + code + " " + resp.StatusCode + " (服务器或网关异常)");
-                            SetStatus("连接失败", Color.Red);
+                            SetStatus("连接失败", Theme.Error);
                         }
                         else
                         {
                             Log("[OK] 连接成功! 服务器响应: " + code + " " + resp.StatusCode);
-                            SetStatus("连接成功", Color.DarkGreen);
+                            SetStatus("连接成功", Theme.Success);
                         }
                     }
                 }
@@ -265,31 +574,31 @@ internal class CollectorForm : Form
                             if (code >= 500)
                             {
                                 Log("[FAIL] 连接失败: 服务器返回 " + code + " " + resp.StatusCode + " (服务器或网关异常,请确认服务端已启动)");
-                                SetStatus("连接失败", Color.Red);
+                                SetStatus("连接失败", Theme.Error);
                             }
                             else
                             {
                                 Log("[OK] 连接成功! 服务器响应: " + code + " " + resp.StatusCode + " (后台需登录,但服务器可达)");
-                                SetStatus("连接成功", Color.DarkGreen);
+                                SetStatus("连接成功", Theme.Success);
                             }
                         }
                         catch
                         {
                             Log("[FAIL] 连接失败: 服务器返回异常响应");
-                            SetStatus("连接失败", Color.Red);
+                            SetStatus("连接失败", Theme.Error);
                         }
                     }
                     else
                     {
                         Log("[FAIL] 连接失败: " + (wex.InnerException != null ? wex.InnerException.Message : wex.Message));
-                        SetStatus("连接失败", Color.Red);
+                        SetStatus("连接失败", Theme.Error);
                     }
                 }
             }
             catch (Exception ex)
             {
                 Log("[FAIL] 连接失败: " + ex.Message);
-                SetStatus("连接失败", Color.Red);
+                SetStatus("连接失败", Theme.Error);
             }
             finally
             {
@@ -303,16 +612,16 @@ internal class CollectorForm : Form
 
     private void StartCollect()
     {
-        string url = txtServer.Text.Trim().TrimEnd('/');
+        string url = txtServer.TextValue.Trim().TrimEnd('/');
         if (url.Length == 0)
         {
-            MessageBox.Show("请先填写服务端地址", "提示");
+            MessageBox.Show("请先填写服务端地址", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         serverUrl = url;
         SetButtons(false);
         btnOpen.Enabled = false;
-        SetStatus("采集中...", Color.DarkOrange);
+        SetStatus("采集中...", Theme.Warning);
         txtLog.Clear();
         Log("==============================================");
         Log("服务端: " + serverUrl);
@@ -326,7 +635,7 @@ internal class CollectorForm : Form
                 lastRecordId = id;
                 Log("");
                 Log("[OK] 采集上报成功! 记录 ID: " + id);
-                SetStatus("采集完成", Color.DarkGreen);
+                SetStatus("采集完成", Theme.Success);
                 SetButtons(true);
                 btnOpen.Enabled = true;
                 Log("点击下方『打开登记页』按钮填写使用人和部门。");
@@ -336,7 +645,7 @@ internal class CollectorForm : Form
                 Log("");
                 Log("[FAIL] 采集失败: " + ex.Message);
                 Log("请检查: 1) 服务端地址是否正确  2) 服务端是否运行  3) 网络/防火墙");
-                SetStatus("采集失败", Color.Red);
+                SetStatus("采集失败", Theme.Error);
                 SetButtons(true);
             }
         });
@@ -348,7 +657,7 @@ internal class CollectorForm : Form
     {
         if (lastRecordId.Length == 0)
         {
-            MessageBox.Show("还没有采集记录，请先点击『开始采集』", "提示");
+            MessageBox.Show("还没有采集记录，请先点击『开始采集』", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         try
@@ -363,7 +672,7 @@ internal class CollectorForm : Form
         }
     }
 
-    // ==================== 采集逻辑（复用控制台版） ====================
+    // ==================== 采集逻辑 ====================
     private string DoCollectAndReport(string serverUrl)
     {
         Log("[1/4] 采集系统信息...");
@@ -382,7 +691,6 @@ internal class CollectorForm : Form
 
         string deviceType = DetectDeviceType(cs);
 
-        // ---- 内存 ----
         long memTotalBytes = 0;
         List<string> sticks = new List<string>();
         ManagementObjectCollection memColl = new ManagementObjectSearcher(
@@ -403,7 +711,6 @@ internal class CollectorForm : Form
         }
         double memTotalGb = Math.Round(memTotalBytes / 1073741824.0, 2);
 
-        // ---- 硬盘 ----
         List<string> disks = new List<string>();
         int diskCount = 0;
         ManagementObjectCollection diskColl = new ManagementObjectSearcher(
@@ -420,7 +727,6 @@ internal class CollectorForm : Form
                 + "}");
         }
 
-        // ---- 网络 ----
         List<string> nets = new List<string>();
         int netCount = 0;
         ManagementObjectCollection netColl = new ManagementObjectSearcher(
@@ -432,10 +738,7 @@ internal class CollectorForm : Form
             if (ips != null)
             {
                 List<string> v4 = new List<string>();
-                foreach (string ip in ips)
-                {
-                    if (IsIPv4(ip)) v4.Add(ip);
-                }
+                foreach (string ip in ips) { if (IsIPv4(ip)) v4.Add(ip); }
                 ipv4 = string.Join(", ", v4.ToArray());
             }
             netCount++;
@@ -446,14 +749,12 @@ internal class CollectorForm : Form
                 + "}");
         }
 
-        // ---- 软件 ----
         Log("[2/4] 采集已安装软件列表...");
         List<string[]> software = ReadSoftware();
 
         Log("[3/4] 发现: " + sticks.Count + " 条内存, " + diskCount + " 块硬盘, "
             + netCount + " 个网卡, " + software.Count + " 项软件。");
 
-        // ---- 构造 JSON ----
         StringBuilder sb = new StringBuilder();
         sb.Append("{");
         sb.Append("\"hostname\":").Append(J(hostname)).Append(",");
@@ -484,48 +785,23 @@ internal class CollectorForm : Form
         string resp = HttpPost(serverUrl + "/api/report", sb.ToString());
 
         string id = ExtractJsonString(resp, "id");
-        if (resp.IndexOf("\"ok\":true") >= 0 && id.Length > 0)
-        {
-            return id;
-        }
+        if (resp.IndexOf("\"ok\":true") >= 0 && id.Length > 0) return id;
         throw new Exception("服务器返回异常: " + resp);
     }
 
     // ---------------- WMI helpers ----------------
     private static ManagementObject FirstWmi(string query)
     {
-        try
-        {
-            foreach (ManagementObject o in new ManagementObjectSearcher(query).Get()) return o;
-        }
-        catch { }
+        try { foreach (ManagementObject o in new ManagementObjectSearcher(query).Get()) return o; } catch { }
         return null;
     }
-
     private static string Str(ManagementObject mo, string prop)
     {
         if (mo == null) return "";
-        try
-        {
-            object v = mo[prop];
-            if (v == null) return "";
-            return v.ToString().Trim();
-        }
-        catch { return ""; }
+        try { object v = mo[prop]; return v == null ? "" : v.ToString().Trim(); } catch { return ""; }
     }
-
-    private static long ToLong(object v)
-    {
-        if (v == null) return 0;
-        try { return Convert.ToInt64(v); } catch { return 0; }
-    }
-
-    private static uint ToUInt(object v)
-    {
-        if (v == null) return 0;
-        try { return Convert.ToUInt32(v); } catch { return 0; }
-    }
-
+    private static long ToLong(object v) { if (v == null) return 0; try { return Convert.ToInt64(v); } catch { return 0; } }
+    private static uint ToUInt(object v) { if (v == null) return 0; try { return Convert.ToUInt32(v); } catch { return 0; } }
     private static bool IsIPv4(string s)
     {
         if (string.IsNullOrEmpty(s)) return false;
@@ -539,7 +815,6 @@ internal class CollectorForm : Form
         }
         return true;
     }
-
     private static string DetectDeviceType(ManagementObject cs)
     {
         try
@@ -547,14 +822,12 @@ internal class CollectorForm : Form
             int[] laptopTypes = { 8, 9, 10, 11, 12, 14, 18, 21, 30, 31, 32 };
             int pst = -1;
             if (cs != null && cs["PCSystemType"] != null) pst = Convert.ToInt32(cs["PCSystemType"]);
-
             List<int> chassis = new List<int>();
             foreach (ManagementObject enc in new ManagementObjectSearcher("SELECT ChassisTypes FROM Win32_SystemEnclosure").Get())
             {
                 ushort[] cts = enc["ChassisTypes"] as ushort[];
                 if (cts != null) foreach (ushort c in cts) chassis.Add((int)c);
             }
-
             if (pst == 2) return "Laptop";
             bool chassisLaptop = false;
             foreach (int c in chassis) foreach (int t in laptopTypes) if (c == t) chassisLaptop = true;
@@ -582,9 +855,7 @@ internal class CollectorForm : Form
         });
         return list;
     }
-
-    private static void ReadUninstall(RegistryHive hive, RegistryView view, string sub,
-        List<string[]> list, HashSet<string> seen)
+    private static void ReadUninstall(RegistryHive hive, RegistryView view, string sub, List<string[]> list, HashSet<string> seen)
     {
         try
         {
@@ -602,10 +873,7 @@ internal class CollectorForm : Form
                             string dn = k.GetValue("DisplayName") as string;
                             if (string.IsNullOrWhiteSpace(dn)) continue;
                             object sc = k.GetValue("SystemComponent");
-                            if (sc != null)
-                            {
-                                try { if (Convert.ToInt32(sc) == 1) continue; } catch { }
-                            }
+                            if (sc != null) { try { if (Convert.ToInt32(sc) == 1) continue; } catch { } }
                             if (dn.StartsWith("KB", StringComparison.OrdinalIgnoreCase)) continue;
                             string ver = k.GetValue("DisplayVersion") as string;
                             string pub = k.GetValue("Publisher") as string;
@@ -647,7 +915,6 @@ internal class CollectorForm : Form
         sb.Append("\"");
         return sb.ToString();
     }
-
     private static string HttpPost(string url, string json)
     {
         try { ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072; } catch { }
@@ -664,7 +931,6 @@ internal class CollectorForm : Form
         using (StreamReader sr = new StreamReader(st, Encoding.UTF8))
             return sr.ReadToEnd();
     }
-
     private static string ExtractJsonString(string json, string key)
     {
         string pat = "\"" + key + "\":\"";
@@ -683,12 +949,12 @@ internal class CollectorForm : Form
     }
 }
 
+// ==================== 入口 ====================
 internal static class Program
 {
     [STAThread]
     private static void Main(string[] args)
     {
-        // 带参数时跳过 GUI（保留控制台兼容，详见 collect.exe）
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         Application.Run(new CollectorForm());
