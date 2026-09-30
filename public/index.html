@@ -194,7 +194,7 @@
         </div>
         <div style="margin-top:6px">
           <b style="color:#5a6b7f; font-size:13px">自定义字段</b>
-          <span style="color:#a8b6c5; font-size:12px; margin-left:6px">（可选，如固定资产编号、办公位号等）</span>
+          <span style="color:#a8b6c5; font-size:12px; margin-left:6px">（可选，请<b>统一使用规范字段名</b>，避免同一含义多种写法）</span>
         </div>
         <div id="extra-fields"></div>
         <button type="button" class="btn-add-extra" id="btn-add-extra">＋ 添加自定义字段</button>
@@ -359,16 +359,27 @@ function renderSoftware(kw) {
 $('sw-search').addEventListener('input', (e) => renderSoftware(e.target.value.trim().toLowerCase()));
 
 // ---------- 自定义字段动态增减 ----------
+// 建议字段名列表（点击 placeholder 旁的下拉可一键填充，避免拼写差异）
+const SUGGESTED_FIELDS = ['固定资产编号', '办公位号', '领用日期', '设备状态', '备注'];
+
 function addExtraRow(label = '', value = '') {
   const wrap = $('extra-fields');
   const row = document.createElement('div');
   row.className = 'extra-row';
-  row.innerHTML = `<input type="text" class="ex-label" maxlength="50" placeholder="字段名（如：固定资产编号）" value="${esc(label)}">
+  const labelInputId = `ex-label-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  row.innerHTML = `<input type="text" id="${labelInputId}" class="ex-label" maxlength="50" list="suggested-fields" placeholder="字段名（建议从右侧下拉选择）" value="${esc(label)}">
     <input type="text" class="ex-value" maxlength="200" placeholder="字段值" value="${esc(value)}">
     <button type="button" class="extra-del" title="删除此字段">×</button>`;
   row.querySelector('.extra-del').addEventListener('click', () => row.remove());
   wrap.appendChild(row);
 }
+
+// 创建一个全局 datalist 供所有 label 输入框使用
+const datalist = document.createElement('datalist');
+datalist.id = 'suggested-fields';
+datalist.innerHTML = SUGGESTED_FIELDS.map((f) => `<option value="${esc(f)}">`).join('');
+document.body.appendChild(datalist);
+
 $('btn-add-extra').addEventListener('click', () => addExtraRow());
 
 function collectExtras() {
