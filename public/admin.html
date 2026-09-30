@@ -117,6 +117,10 @@
   .info-item .value { word-break: break-all; font-weight: 500; }
   table.inner { min-width: 0; }
   table.inner th, table.inner td { padding: 8px 10px; }
+  /* 弹窗内的表不吸顶、不高亮行，并允许横向滚动 */
+  .table-scroll { overflow-x: auto; max-width: 100%; }
+  .modal table.inner th { position: static; }
+  .modal table.inner tr:hover td { background: none; }
 </style>
 </head>
 <body>
@@ -426,8 +430,8 @@ async function openDetail(id) {
   let swHtml = '';
   if ((d.software || []).length) {
     swHtml = `<div class="section-title">已安装软件（${d.software.length} 个）</div>
-    <table class="inner"><thead><tr><th style="width:40%">软件名称</th><th>版本</th><th>发布者</th></tr></thead>
-    <tbody>${d.software.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.version)}</td><td>${esc(x.publisher)}</td></tr>`).join('')}</tbody></table>`;
+    <div class="table-scroll"><table class="inner"><thead><tr><th style="width:40%">软件名称</th><th>版本</th><th>发布者</th></tr></thead>
+    <tbody>${d.software.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.version)}</td><td>${esc(x.publisher)}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
   $('modal-body').innerHTML = `
