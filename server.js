@@ -325,6 +325,17 @@ app.get('/api/records/:id', requireAdmin, (req, res) => {
   res.json({ ok: true, data: rowOut(row, true) });
 });
 
+// ---------- 后台：删除单条记录（需登录） ----------
+app.delete('/api/records/:id', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ ok: false, error: '无效的记录 ID' });
+  }
+  const info = db.prepare('DELETE FROM records WHERE id = ?').run(id);
+  if (info.changes === 0) return res.status(404).json({ ok: false, error: '记录不存在或已被删除' });
+  res.json({ ok: true });
+});
+
 // ---------- 后台登录页 ----------
 app.get('/admin/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
