@@ -178,9 +178,10 @@ nginx -t && systemctl reload nginx
 
 | 采集器 | 适用场景 | 特点 |
 |---|---|---|
-| `collect.ps1` | PowerShell 未被禁用 | 脚本无需编译，双击即跑 |
-| `collect.exe` | PowerShell 被禁用 / 需要批量下发 | 控制台程序，支持命令行参数，适合脚本自动化 |
-| `collect-ui.exe` | 员工自行配置 / 首次部署 | **图形界面**，地址输入框 + 测试连接 + 采集按钮，零门槛 |
+| `collect.ps1` | PowerShell 未被禁用（Windows） | 脚本无需编译，双击即跑 |
+| `collect.exe` | PowerShell 被禁用 / 需要批量下发（Windows） | 控制台程序，支持命令行参数，适合脚本自动化 |
+| `collect-ui.exe` | 员工自行配置 / 首次部署（Windows） | **图形界面**，地址输入框 + 测试连接 + 采集按钮，零门槛 |
+| `collect.py` | **macOS / 统信 UOS / Linux** | 纯 Python 3.6+ 标准库，零依赖，终端运行 |
 
 #### collect-ui.exe 图形界面版（推荐给员工）
 
@@ -205,6 +206,47 @@ nginx -t && systemctl reload nginx
 1. 控制台显示采集进度
 2. 自动 POST 到服务器
 3. 自动打开浏览器跳转登记页，员工填入"使用人"和"部门"点提交即可
+
+#### macOS / 统信 UOS 版（collect.py）
+
+适用于 macOS 和统信 UOS 等 Linux 发行版，纯 Python 3.6+ 标准库实现，**无需 pip install 任何依赖**。
+
+**前置条件**：系统自带 Python 3（macOS 10.15+ 和 UOS 20+ 默认带）
+
+```bash
+# 检查 Python 版本（需 3.6+）
+python3 --version
+```
+
+**获取脚本**：从仓库根目录下载 [`collect.py`](collect.py)，或在首页 `http://<服务端>/` 下载（如已纳入镜像）。
+
+**运行**：
+
+```bash
+# 方式 1：直接传服务端地址
+python3 collect.py http://192.168.1.100:3000
+
+# 方式 2：不传地址，首次运行交互输入并自动保存到 server.txt
+python3 collect.py
+
+# 方式 3：把地址预先写进 server.txt，双击/拖到终端运行
+python3 collect.py
+```
+
+运行后流程与 Windows 控制台版一致：采集 → 上报 → 自动打开浏览器登记页 → 员工填使用人/部门提交。
+
+**macOS 注意事项**：
+
+- 首次运行可能弹"无法验证开发者"安全提示，到「系统设置 → 隐私与安全性」点「仍要打开」即可
+- 软件/硬件信息读取不需要管理员权限
+- 软件清单扫描 `/Applications` 目录下的 `.app`，读取 `Info.plist` 中的版本和 Bundle ID
+
+**统信 UOS 注意事项**：
+
+- 软件清单通过 `dpkg-query` 拉取所有已安装 deb 包（自动过滤 `lib*`、`python3-*`、语言包等系统库）
+- 内存条详情、序列号等需读 `/sys/class/dmi/id/`，部分字段需 root；普通用户能拿到总量但拿不到每条详情，属正常
+- 硬盘信息优先用 `lsblk -J`（JSON 输出更稳），无 `lsblk` 时降级读 `/sys/block/`
+- 网卡读取 `/sys/class/net/` + `ip addr`，过滤 `lo` 回环接口
 
 #### 服务器地址配置
 
@@ -272,7 +314,8 @@ C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe ^
 │   ├── index.html            # 员工登记页（带 id 参数时）/ 下载引导页（无 id）
 │   ├── admin.html            # 后台记录管理页
 │   └── login.html            # 管理员登录页
-├── collect.ps1               # PowerShell 采集器
+├── collect.ps1               # Windows PowerShell 采集器
+├── collect.py               # macOS / Linux / UOS Python 采集器（纯标准库）
 ├── collector-src/
 │   ├── collect.cs            # C# 控制台采集器源码（编译为 collect.exe）
 │   └── collect-ui.cs         # C# WinForms 图形界面采集器源码（编译为 collect-ui.exe）
