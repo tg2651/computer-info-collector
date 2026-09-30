@@ -402,6 +402,20 @@ app.get('/admin/export', requireAdmin, async (req, res) => {
 
   // Sheet1 资产信息
   const ws = wb.addWorksheet('资产信息');
+
+  // 收集所有记录里出现过的自定义字段名，每个字段独占一列
+  const extraKeys = [];
+  const extraKeySet = new Set();
+  for (const r of rows) {
+    for (const x of parseJson(r.extra_json, [])) {
+      const k = (x.label || '').trim();
+      if (k && !extraKeySet.has(k)) {
+        extraKeySet.add(k);
+        extraKeys.push(k);
+      }
+    }
+  }
+
   ws.columns = [
     { header: '上报时间', key: 'reported_at', width: 20 },
     { header: '提交时间', key: 'submitted_at', width: 20 },
@@ -417,7 +431,8 @@ app.get('/admin/export', requireAdmin, async (req, res) => {
     { header: '当前登录用户', key: 'logged_user', width: 18 },
     { header: '使用人', key: 'user_name', width: 12 },
     { header: '部门', key: 'department', width: 16 },
-    { header: '自定义字段', key: 'extra_detail', width: 40 },
+    // 自定义字段：每个字段名独占一列，列 key 用 extra__ 前缀避免和固定列冲突
+    ...extraKeys.map((k) => ({ header: k, key: `extra__${k}`, width: 22 })),
     { header: '内存总量(GB)', key: 'memory_total_gb', width: 13 },
     { header: '内存明细', key: 'memory_detail', width: 40 },
     { header: '硬盘明细', key: 'disk_detail', width: 46 },
@@ -450,6 +465,13 @@ app.get('/admin/export', requireAdmin, async (req, res) => {
     const software = parseJson(r.software_json, []);
     const extras = parseJson(r.extra_json, []);
 
+    // 自定义字段：按字段名映射到对应列
+    const extraCols = {};
+    for (const x of extras) {
+      const k = (x.label || '').trim();
+      if (k) extraCols[`extra__${k}`] = x.value || '';
+    }
+
     ws.addRow({
       reported_at: r.reported_at,
       submitted_at: r.submitted_at,
@@ -465,7 +487,7 @@ app.get('/admin/export', requireAdmin, async (req, res) => {
       logged_user: r.logged_user,
       user_name: r.user_name,
       department: r.department,
-      extra_detail: extras.map((x) => `${x.label || ''}: ${x.value || ''}`).join('\n'),
+      ...extraCols,
       memory_total_gb: r.memory_total_gb,
       memory_detail: memory.map((m) => `${m.slot || ''} ${m.capacity_gb || '?'}GB ${m.speed || '?'}MHz ${m.manufacturer || ''} ${m.partno || ''}`.trim()).join('\n'),
       disk_detail: disks.map((d) => `${d.model || ''} ${d.size_gb || '?'}GB SN:${d.serial || ''}`).join('\n'),
