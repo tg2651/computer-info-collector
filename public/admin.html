@@ -58,6 +58,9 @@
   .btn:hover { border-color: #3b82f6; color: #1e5799; }
   .btn.primary { background: linear-gradient(135deg, #1e5799, #2989d8); color: #fff; border: none; font-weight: 600; }
   .btn.primary:hover { opacity: .9; color: #fff; }
+  .btn.danger { background: linear-gradient(135deg, #b3202f, #e04848); color: #fff; border: none; font-weight: 600; }
+  .btn.danger:hover { opacity: .9; color: #fff; }
+  .btn.danger:disabled { background: #e2b6b8; cursor: not-allowed; opacity: .7; }
   .export-range { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #8494a7; }
   .date-input {
     padding: 8px 10px; border: 1px solid #d7dee8; border-radius: 8px; font-size: 13px;
@@ -146,12 +149,14 @@
       <input type="date" id="export-to" class="date-input">
     </span>
     <button class="btn primary" id="btn-export">⬇ 导出 Excel</button>
+    <button class="btn danger" id="btn-bulk-delete" disabled>🗑 删除选中</button>
   </div>
 
   <div class="table-wrap">
     <table>
       <thead>
         <tr>
+          <th><input type="checkbox" id="chk-all" title="全选/取消全选"></th>
           <th>状态</th><th>上报时间</th><th>主机名</th><th>品牌 / 型号</th><th>类型</th>
           <th>操作系统</th><th>当前登录用户</th><th>使用人</th><th>部门</th><th>IP 地址</th>
           <th>内存</th><th>硬盘数</th><th>软件数</th><th>操作</th>
@@ -237,6 +242,7 @@ function render(list) {
   $('tbody').innerHTML = list.map(r => {
     const typeCls = r.device_type === '笔记本' ? 'laptop' : r.device_type === '台式机' ? 'desktop' : 'other';
     return `<tr>
+      <td><input type="checkbox" class="row-chk" data-id="${r.id}"></td>
       <td>${r.status === 'submitted' ? '<span class="badge submitted">已提交</span>' : '<span class="badge pending">待提交</span>'}</td>
       <td>${esc(r.reported_at)}</td>
       <td><b>${naHtml(r.hostname)}</b></td>
@@ -252,35 +258,77 @@ function render(list) {
       <td>${r.software_count}</td>
       <td class="nowrap">
         <button class="link-btn" onclick="openDetail(${r.id})">详情</button>
-        <button class="link-btn danger" data-id="${r.id}" data-name="${esc(r.hostname) || ('#' + r.id)}">删除</button>
       </td>
     </tr>`;
   }).join('');
+  syncSelectionUI();
 }
 
 $('btn-search').addEventListener('click', loadRecords);
 $('q').addEventListener('keydown', e => { if (e.key === 'Enter') loadRecords(); });
 $('btn-refresh').addEventListener('click', loadRecords);
 
-// 删除单条记录（事件委托，列表重渲染后仍有效）
-$('tbody').addEventListener('click', async (e) => {
-  const btn = e.target.closest('button.link-btn.danger');
-  if (!btn) return;
-  const id = Number(btn.dataset.id);
-  if (!Number.isInteger(id) || id <= 0) return;
-  const name = btn.dataset.name || ('#' + id);
-  if (!confirm(`确定删除「${name}」的上报记录吗？\n删除后不可恢复。`)) return;
+// ---------- 选中与批量删除 ----------
+const selectedIds = new Set();
+
+function syncSelectionUI() {
+  const boxes = [...document.querySelectorAll('.row-chk')];
+  const total = boxes.length;
+  const checkedCount = boxes.filter(b => b.checked).length;
+  const all = $('chk-all');
+  if (all) {
+    all.checked = total > 0 && checkedCount === total;
+    all.indeterminate = checkedCount > 0 && checkedCount < total;
+  }
+  const btn = $('btn-bulk-delete');
+  btn.disabled = checkedCount === 0;
+  btn.textContent = checkedCount > 0 ? `🗑 删除选中 (${checkedCount})` : '🗑 删除选中';
+}
+
+// 全选 / 取消全选
+$('chk-all').addEventListener('change', (e) => {
+  const checked = e.target.checked;
+  document.querySelectorAll('.row-chk').forEach(b => {
+    b.checked = checked;
+    const id = Number(b.dataset.id);
+    if (checked) selectedIds.add(id); else selectedIds.delete(id);
+  });
+  syncSelectionUI();
+});
+
+// 单选变化（事件委托，列表重渲染后仍有效）
+$('tbody').addEventListener('change', (e) => {
+  const chk = e.target.closest('.row-chk');
+  if (!chk) return;
+  const id = Number(chk.dataset.id);
+  if (chk.checked) selectedIds.add(id); else selectedIds.delete(id);
+  syncSelectionUI();
+});
+
+// 批量删除
+$('btn-bulk-delete').addEventListener('click', async () => {
+  const ids = [...selectedIds];
+  if (!ids.length) return;
+  if (!confirm(`确定删除选中的 ${ids.length} 条记录吗？\n删除后不可恢复。`)) return;
+  const btn = $('btn-bulk-delete');
   btn.disabled = true;
+  btn.textContent = '删除中...';
   try {
-    const r = await api(`/api/records/${id}`, { method: 'DELETE' });
+    const r = await api('/api/records/batch-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
     const j = await r.json().catch(() => ({}));
     if (r.ok && j.ok) {
+      selectedIds.clear();
       await loadRecords();
     } else {
-      alert(j.error || '删除失败');
-      btn.disabled = false;
+      alert(j.error || '批量删除失败');
+      syncSelectionUI();
     }
   } catch (err) { /* 401 已跳转登录页 */ }
+  finally { btn.disabled = false; syncSelectionUI(); }
 });
 
 // 导出 Excel（fetch 方式以便在登录过期时跳转登录页，支持时间段筛选）

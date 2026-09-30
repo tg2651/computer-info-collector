@@ -336,6 +336,21 @@ app.delete('/api/records/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- 后台：批量删除记录（需登录） ----------
+app.post('/api/records/batch-delete', requireAdmin, (req, res) => {
+  const ids = Array.isArray(req.body && req.body.ids) ? req.body.ids : [];
+  const nums = ids
+    .map((v) => Number(v))
+    .filter((v) => Number.isInteger(v) && v > 0)
+    .slice(0, 1000); // 单次最多 1000 条，防止超长请求
+  if (!nums.length) {
+    return res.status(400).json({ ok: false, error: '请至少选择一条有效记录' });
+  }
+  const placeholders = nums.map(() => '?').join(',');
+  const info = db.prepare(`DELETE FROM records WHERE id IN (${placeholders})`).run(...nums);
+  res.json({ ok: true, deleted: info.changes });
+});
+
 // ---------- 后台登录页 ----------
 app.get('/admin/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
