@@ -19,6 +19,7 @@ ENV NODE_ENV=production \
 COPY --from=builder /app/node_modules ./node_modules
 COPY package.json server.js ./
 COPY public ./public
+COPY collect.py ./public/collect.py
 RUN mkdir -p /app/data
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \

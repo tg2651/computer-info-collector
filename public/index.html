@@ -124,7 +124,7 @@
       <h2 style="border:none; margin:10px 0 6px; color:#1e5799; font-size:21px">计算机信息登记</h2>
       <p style="color:#8494a7; font-size:14px; line-height:1.8">
         请先下载并运行采集工具，程序会自动读取电脑配置并打开登记页面，全程约 5 秒钟。<br>
-        两种版本任选其一，均无需安装、<b>不需要 PowerShell</b>。
+        Windows 用户推荐图形界面版，macOS / 统信 UOS 用户请下载 Python 脚本版。
       </p>
     </div>
     <div class="dl-grid">
@@ -139,20 +139,24 @@
         <a href="/collect-ui.exe" download="collect-ui.exe" class="dl-btn primary">⬇ 下载 collect-ui.exe (31KB)</a>
       </div>
       <div class="dl-card secondary">
-        <b style="color:#5a6b7f; font-size:15px; display:block; margin-bottom:8px">⌨️ 控制台版</b>
+        <b style="color:#5a6b7f; font-size:15px; display:block; margin-bottom:8px">🍎 macOS / 统信 UOS 版</b>
         <p style="color:#8494a7; font-size:12px; line-height:1.6; margin-bottom:14px">
-          命令行程序，支持参数自动化，适合 IT 批量下发
+          纯 Python 脚本，适合 macOS 和统信 UOS 等 Linux 系统，系统自带 Python 即可运行
         </p>
-        <a href="/collect.exe" download="collect.exe" class="dl-btn secondary">⬇ 下载 collect.exe (19KB)</a>
+        <a href="/collect.py" download="collect.py" class="dl-btn secondary">⬇ 下载 collect.py</a>
+        <p style="color:#8494a7; font-size:11px; line-height:1.6; margin-top:10px">
+          运行方式：<code style="background:#f0f2f5; padding:1px 5px; border-radius:3px">python3 collect.py</code>
+        </p>
       </div>
     </div>
     <div style="max-width:620px; margin:10px auto 0; background:#f7f9fc; border-radius:10px; padding:18px 24px; font-size:14px; line-height:2.1; color:#47586b">
-      <b style="color:#1e5799">第二步：</b>双击运行下载的程序<br>
+      <b style="color:#1e5799">第二步：</b>运行下载的程序（Windows 双击 .exe；macOS/UOS 终端执行 <code style="background:#f0f2f5; padding:1px 5px; border-radius:3px">python3 collect.py</code>）<br>
       <b style="color:#1e5799">第三步：</b>浏览器会自动打开本电脑的信息确认页，核对后填写<b>使用人</b>和<b>部门</b>，点提交即完成
     </div>
     <div style="max-width:620px; margin:14px auto 0; background:#fff8ec; border:1px solid #ffe3a8; border-radius:10px; padding:14px 20px; font-size:13px; color:#8a6d3b; line-height:1.8">
-      <b>提示：</b>若 Windows 弹出「已保护你的电脑」蓝色提示框，请点击<b>「更多信息」</b>，再点<b>「仍要运行」</b>。
-      该程序仅读取硬件信息并上传到本系统，不会访问任何个人文件。部分杀毒软件可能提示风险，选择「允许/信任」即可。
+      <b>Windows 提示：</b>若弹出「已保护你的电脑」蓝色提示框，请点击<b>「更多信息」</b>，再点<b>「仍要运行」</b>。<br>
+      <b>macOS 提示：</b>首次运行若提示「无法验证开发者」，到「系统设置 → 隐私与安全性」点「仍要打开」即可。<br>
+      采集程序仅读取硬件信息并上传到本系统，不会访问任何个人文件。部分杀毒软件可能提示风险，选择「允许/信任」即可。
     </div>
     <p style="text-align:center; color:#a8b6c5; font-size:12px; margin-top:18px">
       信息仅用于公司 IT 资产管理 · 如已运行过本工具，请直接使用程序自动打开的页面链接
