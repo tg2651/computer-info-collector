@@ -434,6 +434,13 @@ async function openDetail(id) {
     <tbody>${d.software.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.version)}</td><td>${esc(x.publisher)}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
+  const extraRows = (d.extra || []).map(x => `<tr><td>${esc(x.label)}</td><td colspan="3">${esc(x.value) || '—'}</td></tr>`).join('');
+  const extraHtml = extraRows
+    ? `<div class="section-title">自定义字段</div>
+       <table class="inner"><thead><tr><th style="width:30%">字段名</th><th>字段值</th></tr></thead>
+       <tbody>${extraRows}</tbody></table>`
+    : '';
+
   $('modal-body').innerHTML = `
     <div class="section-title">基本信息</div>
     <div class="info-grid">
@@ -450,6 +457,7 @@ async function openDetail(id) {
       <div class="info-item"><span class="label">使用人</span><span class="value">${esc(d.user_name) || '—'}</span></div>
       <div class="info-item"><span class="label">部门</span><span class="value">${esc(d.department) || '—'}</span></div>
     </div>
+    ${extraHtml}
     <div class="section-title">内存（总计 ${esc(d.memory_total_gb)} GB）</div>
     <table class="inner"><thead><tr><th>插槽</th><th>厂商</th><th>型号</th><th>容量</th><th>频率</th></tr></thead>
     <tbody>${memRows || '<tr><td colspan="5" style="color:#b6c6d9">无数据</td></tr>'}</tbody></table>

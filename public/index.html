@@ -76,6 +76,18 @@
   .msg.success { display: block; background: #e3f7e8; color: #1e9e4a; }
   .done-tip { display: flex; align-items: center; gap: 10px; background: #e3f7e8; color: #1e9e4a;
     padding: 14px 18px; border-radius: 10px; font-size: 14px; font-weight: 500; }
+  .extra-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .extra-row input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid #d7dee8;
+    border-radius: 8px; font-size: 13px; outline: none; color: #47586b; font-family: inherit; }
+  .extra-row input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+  .extra-row .ex-label { max-width: 35%; }
+  .extra-del { flex-shrink: 0; width: 30px; height: 30px; border: none; border-radius: 8px;
+    background: #fdecec; color: #d12b3f; font-size: 16px; cursor: pointer; line-height: 1; }
+  .extra-del:hover { background: #f8d0d4; }
+  .btn-add-extra { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px;
+    padding: 7px 14px; border: 1px dashed #3b82f6; background: #f0f7ff; color: #1e5799;
+    border-radius: 8px; font-size: 13px; cursor: pointer; }
+  .btn-add-extra:hover { background: #e0edff; }
   .empty-tip { text-align: center; padding: 60px 20px; color: #8494a7; }
   .empty-tip .big { font-size: 44px; margin-bottom: 14px; }
   .empty-tip h3 { color: #5a6b7f; margin-bottom: 8px; font-size: 16px; }
@@ -164,10 +176,39 @@
   </div>
 
   <div id="content" style="display:none">
+    <!-- 登记信息（移到最前，员工先填表） -->
+    <div class="card" id="submit-card">
+      <h2><span class="icon">📝</span>登记信息
+        <span id="status-badge" style="margin-left:auto"></span>
+      </h2>
+      <div id="submit-form">
+        <div class="form-row">
+          <div class="form-item">
+            <label>使用人<span class="req">*</span></label>
+            <input type="text" id="user-name" maxlength="50" placeholder="请输入使用人姓名">
+          </div>
+          <div class="form-item">
+            <label>部门<span class="req">*</span></label>
+            <input type="text" id="department" maxlength="50" placeholder="请输入所在部门">
+          </div>
+        </div>
+        <div style="margin-top:6px">
+          <b style="color:#5a6b7f; font-size:13px">自定义字段</b>
+          <span style="color:#a8b6c5; font-size:12px; margin-left:6px">（可选，如固定资产编号、办公位号等）</span>
+        </div>
+        <div id="extra-fields"></div>
+        <button type="button" class="btn-add-extra" id="btn-add-extra">＋ 添加自定义字段</button>
+        <button class="btn-submit" id="btn-submit">提交登记</button>
+        <div class="msg" id="form-msg"></div>
+      </div>
+      <div id="submitted-tip" style="display:none">
+        <div class="done-tip">✅ 本设备已完成登记，感谢配合！</div>
+      </div>
+    </div>
+
     <!-- 基本信息 -->
     <div class="card">
       <h2><span class="icon">🖥️</span>基本信息
-        <span id="status-badge" style="margin-left:auto"></span>
       </h2>
       <div class="info-grid" id="basic-grid"></div>
     </div>
@@ -211,28 +252,6 @@
         <thead><tr><th style="width:40%">软件名称</th><th>版本</th><th>发布者</th></tr></thead>
         <tbody id="sw-body"></tbody>
       </table>
-    </div>
-
-    <!-- 提交 -->
-    <div class="card" id="submit-card">
-      <h2><span class="icon">📝</span>登记信息</h2>
-      <div id="submit-form">
-        <div class="form-row">
-          <div class="form-item">
-            <label>使用人<span class="req">*</span></label>
-            <input type="text" id="user-name" maxlength="50" placeholder="请输入使用人姓名">
-          </div>
-          <div class="form-item">
-            <label>部门<span class="req">*</span></label>
-            <input type="text" id="department" maxlength="50" placeholder="请输入所在部门">
-          </div>
-        </div>
-        <button class="btn-submit" id="btn-submit">提交登记</button>
-        <div class="msg" id="form-msg"></div>
-      </div>
-      <div id="submitted-tip" style="display:none">
-        <div class="done-tip">✅ 本设备已完成登记，感谢配合！</div>
-      </div>
     </div>
   </div>
 
@@ -339,6 +358,26 @@ function renderSoftware(kw) {
 
 $('sw-search').addEventListener('input', (e) => renderSoftware(e.target.value.trim().toLowerCase()));
 
+// ---------- 自定义字段动态增减 ----------
+function addExtraRow(label = '', value = '') {
+  const wrap = $('extra-fields');
+  const row = document.createElement('div');
+  row.className = 'extra-row';
+  row.innerHTML = `<input type="text" class="ex-label" maxlength="50" placeholder="字段名（如：固定资产编号）" value="${esc(label)}">
+    <input type="text" class="ex-value" maxlength="200" placeholder="字段值" value="${esc(value)}">
+    <button type="button" class="extra-del" title="删除此字段">×</button>`;
+  row.querySelector('.extra-del').addEventListener('click', () => row.remove());
+  wrap.appendChild(row);
+}
+$('btn-add-extra').addEventListener('click', () => addExtraRow());
+
+function collectExtras() {
+  return [...$('extra-fields').querySelectorAll('.extra-row')].map((row) => ({
+    label: row.querySelector('.ex-label').value.trim(),
+    value: row.querySelector('.ex-value').value.trim(),
+  })).filter((x) => x.label);
+}
+
 $('btn-submit').addEventListener('click', async () => {
   const userName = $('user-name').value.trim();
   const department = $('department').value.trim();
@@ -356,7 +395,7 @@ $('btn-submit').addEventListener('click', async () => {
     const resp = await fetch('/api/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: recordId, user_name: userName, department }),
+      body: JSON.stringify({ id: recordId, user_name: userName, department, extra: collectExtras() }),
     });
     const json = await resp.json();
     if (json.ok) {

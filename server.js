@@ -34,13 +34,22 @@ CREATE TABLE IF NOT EXISTS records (
   network_json TEXT DEFAULT '[]',
   software_json TEXT DEFAULT '[]',
   user_name TEXT DEFAULT '',
-  department TEXT DEFAULT ''
+  department TEXT DEFAULT '',
+  extra_json TEXT DEFAULT '[]'
 );
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
 `);
+
+// 迁移：旧库没有 extra_json 字段时自动添加（CREATE TABLE IF NOT EXISTS 不会改已有表）
+{
+  const cols = db.prepare("PRAGMA table_info(records)").all();
+  if (!cols.find((c) => c.name === 'extra_json')) {
+    db.exec("ALTER TABLE records ADD COLUMN extra_json TEXT DEFAULT '[]'");
+  }
+}
 
 // ---------- 工具 ----------
 function s(v, max = 300) {
@@ -89,6 +98,7 @@ function rowOut(row, withJson = false) {
     memory_total_gb: row.memory_total_gb,
     user_name: row.user_name,
     department: row.department,
+    extra: parseJson(row.extra_json, []),
   };
   const network = parseJson(row.network_json, []);
   base.network = network;
@@ -284,19 +294,28 @@ app.get('/api/info', (req, res) => {
 
 // ---------- 前台：提交使用人/部门 ----------
 app.post('/api/submit', (req, res) => {
-  const { id, user_name, department } = req.body || {};
+  const { id, user_name, department, extra } = req.body || {};
   const user = s(user_name, 100);
   const dept = s(department, 100);
   if (!id) return res.status(400).json({ ok: false, error: '缺少 id' });
   if (!user) return res.status(400).json({ ok: false, error: '请填写使用人' });
   if (!dept) return res.status(400).json({ ok: false, error: '请填写部门' });
 
+  // 自定义字段：数组 [{label, value}]，过滤空 label，单字段长度上限
+  let extraArr = [];
+  if (Array.isArray(extra)) {
+    extraArr = extra
+      .map((it) => ({ label: s(it && it.label, 50), value: s(it && it.value, 200) }))
+      .filter((it) => it.label)
+      .slice(0, 20);
+  }
+
   const row = db.prepare('SELECT id, status FROM records WHERE guid = ?').get(s(id, 200));
   if (!row) return res.status(404).json({ ok: false, error: '记录不存在' });
   if (row.status === 'submitted') return res.status(409).json({ ok: false, error: '该记录已提交，请勿重复提交' });
 
-  db.prepare("UPDATE records SET user_name = ?, department = ?, status = 'submitted', submitted_at = ? WHERE id = ?")
-    .run(user, dept, fmtNow(), row.id);
+  db.prepare("UPDATE records SET user_name = ?, department = ?, extra_json = ?, status = 'submitted', submitted_at = ? WHERE id = ?")
+    .run(user, dept, JSON.stringify(extraArr), fmtNow(), row.id);
   res.json({ ok: true });
 });
 
@@ -398,6 +417,7 @@ app.get('/admin/export', requireAdmin, async (req, res) => {
     { header: '当前登录用户', key: 'logged_user', width: 18 },
     { header: '使用人', key: 'user_name', width: 12 },
     { header: '部门', key: 'department', width: 16 },
+    { header: '自定义字段', key: 'extra_detail', width: 40 },
     { header: '内存总量(GB)', key: 'memory_total_gb', width: 13 },
     { header: '内存明细', key: 'memory_detail', width: 40 },
     { header: '硬盘明细', key: 'disk_detail', width: 46 },
@@ -428,6 +448,7 @@ app.get('/admin/export', requireAdmin, async (req, res) => {
     const disks = parseJson(r.disk_json, []);
     const network = parseJson(r.network_json, []);
     const software = parseJson(r.software_json, []);
+    const extras = parseJson(r.extra_json, []);
 
     ws.addRow({
       reported_at: r.reported_at,
@@ -444,6 +465,7 @@ app.get('/admin/export', requireAdmin, async (req, res) => {
       logged_user: r.logged_user,
       user_name: r.user_name,
       department: r.department,
+      extra_detail: extras.map((x) => `${x.label || ''}: ${x.value || ''}`).join('\n'),
       memory_total_gb: r.memory_total_gb,
       memory_detail: memory.map((m) => `${m.slot || ''} ${m.capacity_gb || '?'}GB ${m.speed || '?'}MHz ${m.manufacturer || ''} ${m.partno || ''}`.trim()).join('\n'),
       disk_detail: disks.map((d) => `${d.model || ''} ${d.size_gb || '?'}GB SN:${d.serial || ''}`).join('\n'),
