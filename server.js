@@ -51,6 +51,14 @@ CREATE TABLE IF NOT EXISTS settings (
   }
 }
 
+// 清洗字符串：过滤 XML 1.0 非法字符（仅保留 \t \n \r 和可见字符），避免 ExcelJS 生成损坏的 .xlsx
+function cleanXml(v) {
+  if (typeof v !== 'string') return v;
+  // XML 1.0 合法字符：\t \n \r \x20-\xD7FF \xE000-\xFFFD
+  // 过滤掉 \x00-\x08 \x0b \x0c \x0e-\x1f \x7f 等非法控制字符
+  return v.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
+}
+
 // ---------- 工具 ----------
 function s(v, max = 300) {
   if (v === undefined || v === null) return '';
@@ -494,7 +502,11 @@ app.get('/admin/export', requireAdmin, async (req, res) => {
       disk_detail: disks.map((d) => `${d.model || ''} ${d.size_gb || '?'}GB SN:${d.serial || ''}`).join('\n'),
       net_detail: network.map((n) => `${n.name || ''} IP:${n.ip || ''} MAC:${n.mac || ''}`).join('\n'),
       software_count: software.length,
-    }).eachCell((cell) => { cell.alignment = { vertical: 'top', wrapText: true }; });
+    }).eachCell((cell) => {
+      // 清洗 XML 非法控制字符，防止 .xlsx 损坏
+      if (typeof cell.value === 'string') cell.value = cleanXml(cell.value);
+      cell.alignment = { vertical: 'top', wrapText: true };
+    });
 
     for (const sw of software) {
       ws2.addRow({
@@ -504,6 +516,8 @@ app.get('/admin/export', requireAdmin, async (req, res) => {
         name: sw.name || '',
         version: sw.version || '',
         publisher: sw.publisher || '',
+      }).eachCell((cell) => {
+        if (typeof cell.value === 'string') cell.value = cleanXml(cell.value);
       });
     }
   }
