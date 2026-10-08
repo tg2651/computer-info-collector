@@ -431,8 +431,8 @@ app.get('/admin/export', requireAdmin, async (req, res) => {
     { header: '当前登录用户', key: 'logged_user', width: 18 },
     { header: '使用人', key: 'user_name', width: 12 },
     { header: '部门', key: 'department', width: 16 },
-    // 自定义字段：每个字段名独占一列，列 key 用 extra__ 前缀避免和固定列冲突
-    ...extraKeys.map((k) => ({ header: k, key: `extra__${k}`, width: 22 })),
+    // 自定义字段：每个字段名独占一列，列 key 用纯 ASCII（extra_N）避免 ExcelJS 中文 key 序列化问题
+    ...extraKeys.map((k, i) => ({ header: k, key: `extra_${i}`, width: 22 })),
     { header: '内存总量(GB)', key: 'memory_total_gb', width: 13 },
     { header: '内存明细', key: 'memory_detail', width: 40 },
     { header: '硬盘明细', key: 'disk_detail', width: 46 },
@@ -465,11 +465,12 @@ app.get('/admin/export', requireAdmin, async (req, res) => {
     const software = parseJson(r.software_json, []);
     const extras = parseJson(r.extra_json, []);
 
-    // 自定义字段：按字段名映射到对应列
+    // 自定义字段：按字段名映射到对应列（列 key 用 extra_N 索引，避免中文 key）
     const extraCols = {};
     for (const x of extras) {
       const k = (x.label || '').trim();
-      if (k) extraCols[`extra__${k}`] = x.value || '';
+      const idx = extraKeys.indexOf(k);
+      if (idx >= 0) extraCols[`extra_${idx}`] = x.value || '';
     }
 
     ws.addRow({
