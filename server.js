@@ -51,12 +51,12 @@ CREATE TABLE IF NOT EXISTS settings (
   }
 }
 
-// 清洗字符串：过滤 XML 1.0 非法字符（仅保留 \t \n \r 和可见字符），避免 ExcelJS 生成损坏的 .xlsx
+// 清洗字符串：白名单方式，只保留 XML 1.0 合法字符，避免 ExcelJS 生成损坏的 .xlsx
 function cleanXml(v) {
   if (typeof v !== 'string') return v;
-  // XML 1.0 合法字符：\t \n \r \x20-\xD7FF \xE000-\xFFFD
-  // 过滤掉 \x00-\x08 \x0b \x0c \x0e-\x1f \x7f 等非法控制字符
-  return v.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
+  // XML 1.0 合法字符：\t(\x09) \n(\x0A) \r(\x0D) \x20-\xD7FF \xE000-\xFFFD
+  // 过滤控制字符、代理对(\uD800-\uDFFF)、非字符(\uFFFE \uFFFF)等
+  return v.replace(/[^\t\n\r\x20-\uD7FF\uE000-\uFFFD]/g, '');
 }
 
 // ---------- 工具 ----------
