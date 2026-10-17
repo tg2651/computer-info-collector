@@ -76,18 +76,13 @@
   .msg.success { display: block; background: #e3f7e8; color: #1e9e4a; }
   .done-tip { display: flex; align-items: center; gap: 10px; background: #e3f7e8; color: #1e9e4a;
     padding: 14px 18px; border-radius: 10px; font-size: 14px; font-weight: 500; }
-  .extra-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-  .extra-row input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid #d7dee8;
+  .extra-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin-top: 8px; }
+  @media (max-width: 520px) { .extra-grid { grid-template-columns: 1fr; } }
+  .extra-item label { display: block; font-size: 13px; color: #5a6b7f; margin-bottom: 5px; }
+  .extra-item label .req { color: #d12b3f; margin-left: 3px; }
+  .extra-item input { width: 100%; padding: 9px 12px; border: 1px solid #d7dee8;
     border-radius: 8px; font-size: 13px; outline: none; color: #47586b; font-family: inherit; }
-  .extra-row input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
-  .extra-row .ex-label { max-width: 35%; }
-  .extra-del { flex-shrink: 0; width: 30px; height: 30px; border: none; border-radius: 8px;
-    background: #fdecec; color: #d12b3f; font-size: 16px; cursor: pointer; line-height: 1; }
-  .extra-del:hover { background: #f8d0d4; }
-  .btn-add-extra { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px;
-    padding: 7px 14px; border: 1px dashed #3b82f6; background: #f0f7ff; color: #1e5799;
-    border-radius: 8px; font-size: 13px; cursor: pointer; }
-  .btn-add-extra:hover { background: #e0edff; }
+  .extra-item input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
   .empty-tip { text-align: center; padding: 60px 20px; color: #8494a7; }
   .empty-tip .big { font-size: 44px; margin-bottom: 14px; }
   .empty-tip h3 { color: #5a6b7f; margin-bottom: 8px; font-size: 16px; }
@@ -192,12 +187,11 @@
             <input type="text" id="department" maxlength="50" placeholder="请输入所在部门">
           </div>
         </div>
-        <div style="margin-top:6px">
-          <b style="color:#5a6b7f; font-size:13px">自定义字段</b>
-          <span style="color:#a8b6c5; font-size:12px; margin-left:6px">（可选，请<b>统一使用规范字段名</b>，避免同一含义多种写法）</span>
+        <div id="extra-block" style="margin-top:6px; display:none">
+          <b style="color:#5a6b7f; font-size:13px">补充信息</b>
+          <span style="color:#a8b6c5; font-size:12px; margin-left:6px">（由管理员配置，按要求填写即可）</span>
         </div>
         <div id="extra-fields"></div>
-        <button type="button" class="btn-add-extra" id="btn-add-extra">＋ 添加自定义字段</button>
         <button class="btn-submit" id="btn-submit">提交登记</button>
         <div class="msg" id="form-msg"></div>
       </div>
@@ -286,6 +280,7 @@ async function load() {
     const json = await resp.json();
     if (!json.ok) return showError('无法加载设备信息', json.error || '');
     render(json.data);
+    loadExtraFields();
   } catch (e) {
     showError('无法连接服务器', '请确认服务端已启动，并刷新重试。');
   }
@@ -358,35 +353,61 @@ function renderSoftware(kw) {
 
 $('sw-search').addEventListener('input', (e) => renderSoftware(e.target.value.trim().toLowerCase()));
 
-// ---------- 自定义字段动态增减 ----------
-// 建议字段名列表（点击 placeholder 旁的下拉可一键填充，避免拼写差异）
-const SUGGESTED_FIELDS = ['固定资产编号', '办公位号', '领用日期', '设备状态', '备注'];
+// ---------- 自定义字段：由管理员在后台配置，前台只渲染并采集值 ----------
+let extraFieldDefs = [];
 
-function addExtraRow(label = '', value = '') {
+// 渲染管理员配置的自定义字段（员工只填值）
+function renderExtraFields(fields) {
+  extraFieldDefs = Array.isArray(fields) ? fields : [];
   const wrap = $('extra-fields');
-  const row = document.createElement('div');
-  row.className = 'extra-row';
-  const labelInputId = `ex-label-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-  row.innerHTML = `<input type="text" id="${labelInputId}" class="ex-label" maxlength="50" list="suggested-fields" placeholder="字段名（建议从右侧下拉选择）" value="${esc(label)}">
-    <input type="text" class="ex-value" maxlength="200" placeholder="字段值" value="${esc(value)}">
-    <button type="button" class="extra-del" title="删除此字段">×</button>`;
-  row.querySelector('.extra-del').addEventListener('click', () => row.remove());
-  wrap.appendChild(row);
+  const block = $('extra-block');
+  wrap.innerHTML = '';
+  if (!extraFieldDefs.length) {
+    block.style.display = 'none';
+    return;
+  }
+  block.style.display = 'block';
+  const grid = document.createElement('div');
+  grid.className = 'extra-grid';
+  extraFieldDefs.forEach((f) => {
+    const item = document.createElement('div');
+    item.className = 'extra-item';
+    const req = f.required ? '<span class="req">*</span>' : '';
+    const inputType = f.type === 'number' ? 'number' : (f.type === 'date' ? 'date' : 'text');
+    item.innerHTML = `<label>${esc(f.label)}${req}</label>
+      <input type="${inputType}" data-label="${esc(f.label)}" data-key="${esc(f.key)}" maxlength="200" placeholder="请输入${esc(f.label)}">`;
+    grid.appendChild(item);
+  });
+  wrap.appendChild(grid);
 }
 
-// 创建一个全局 datalist 供所有 label 输入框使用
-const datalist = document.createElement('datalist');
-datalist.id = 'suggested-fields';
-datalist.innerHTML = SUGGESTED_FIELDS.map((f) => `<option value="${esc(f)}">`).join('');
-document.body.appendChild(datalist);
+// 加载自定义字段定义
+async function loadExtraFields() {
+  try {
+    const resp = await fetch('/api/extra-fields');
+    const json = await resp.json();
+    renderExtraFields(json.fields || []);
+  } catch (e) {
+    renderExtraFields([]);
+  }
+}
 
-$('btn-add-extra').addEventListener('click', () => addExtraRow());
-
+// 采集自定义字段值（按 label 上报，保持后端兼容）
 function collectExtras() {
-  return [...$('extra-fields').querySelectorAll('.extra-row')].map((row) => ({
-    label: row.querySelector('.ex-label').value.trim(),
-    value: row.querySelector('.ex-value').value.trim(),
+  return [...$('extra-fields').querySelectorAll('input[data-label]')].map((inp) => ({
+    label: inp.dataset.label,
+    value: inp.value.trim(),
   })).filter((x) => x.label);
+}
+
+// 校验必填自定义字段
+function validateExtras() {
+  for (const f of extraFieldDefs) {
+    if (!f.required) continue;
+    const inp = $('extra-fields').querySelector(`input[data-key="${f.key}"]`);
+    if (inp && !inp.value.trim()) return f.label;
+  }
+  return '';
 }
 
 $('btn-submit').addEventListener('click', async () => {
@@ -397,6 +418,12 @@ $('btn-submit').addEventListener('click', async () => {
   if (!userName || !department) {
     msg.className = 'msg error';
     msg.textContent = '请填写使用人和部门后再提交';
+    return;
+  }
+  const missing = validateExtras();
+  if (missing) {
+    msg.className = 'msg error';
+    msg.textContent = `请填写必填项：${missing}`;
     return;
   }
   const btn = $('btn-submit');

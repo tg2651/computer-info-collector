@@ -26,6 +26,16 @@
   .header .hbtn:hover { background: rgba(255,255,255,.18); color: #fff; }
   .pwd-row { display: flex; gap: 14px; flex-wrap: wrap; }
   .pwd-row .form-item { flex: 1; min-width: 200px; }
+  .ef-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .ef-row .ef-label { flex: 1; min-width: 0; padding: 8px 12px; border: 1px solid #d7dee8;
+    border-radius: 8px; font-size: 13px; outline: none; font-family: inherit; }
+  .ef-row .ef-label:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+  .ef-row .ef-type { padding: 8px 10px; border: 1px solid #d7dee8; border-radius: 8px;
+    font-size: 13px; outline: none; background: #fff; font-family: inherit; color: #47586b; }
+  .ef-row .ef-req { font-size: 13px; color: #5a6b7f; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .ef-row .ef-del { flex-shrink: 0; width: 32px; height: 32px; border: none; border-radius: 8px;
+    background: #fdecec; color: #d12b3f; font-size: 18px; cursor: pointer; line-height: 1; }
+  .ef-row .ef-del:hover { background: #f8d0d4; }
   .form-item label { display: block; font-size: 13px; color: #5a6b7f; margin-bottom: 6px; }
   .form-item input {
     width: 100%; padding: 9px 13px; border: 1px solid #d7dee8; border-radius: 8px;
@@ -153,6 +163,7 @@
       <input type="date" id="export-to" class="date-input">
     </span>
     <button class="btn primary" id="btn-export">⬇ 导出 Excel</button>
+    <button class="btn" id="btn-extra-fields">⚙ 自定义字段</button>
     <button class="btn danger" id="btn-bulk-delete" disabled>🗑 删除选中</button>
   </div>
 
@@ -209,6 +220,28 @@
       <div class="modal-foot">
         <button class="btn" onclick="closePwd()" style="margin-right:8px">取消</button>
         <button class="btn-save" id="pwd-save">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 自定义字段管理弹窗 -->
+<div class="mask" id="extra-mask">
+  <div class="modal" style="width:640px">
+    <div class="modal-head">
+      <h3>自定义字段管理</h3>
+      <button class="close" onclick="closeExtraFields()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:#8494a7;margin-bottom:14px">
+        配置员工登记页需要填写的补充字段。员工上报后将看到这些字段并填写，每个字段在 Excel 导出时独占一列。
+      </p>
+      <div id="extra-list"></div>
+      <button class="btn" id="btn-add-field" style="margin-top:10px">＋ 添加字段</button>
+      <div class="pwd-msg" id="extra-msg"></div>
+      <div class="modal-foot">
+        <button class="btn" onclick="closeExtraFields()" style="margin-right:8px">取消</button>
+        <button class="btn-save" id="extra-save">保存</button>
       </div>
     </div>
   </div>
@@ -404,6 +437,109 @@ $('pwd-save').addEventListener('click', async () => {
     } else {
       m.className = 'pwd-msg error';
       m.textContent = j.error || '修改失败';
+    }
+  } catch (e) { /* 401 已跳转 */ }
+  finally { btn.disabled = false; btn.textContent = '保存'; }
+});
+
+// ---------- 自定义字段管理 ----------
+let extraFieldRows = []; // 本地编辑状态
+
+function openExtraFields() {
+  extraFieldRows = [];
+  $('extra-list').innerHTML = '<div class="spin" style="margin:20px auto"></div>';
+  $('extra-msg').className = 'pwd-msg';
+  $('extra-mask').classList.add('show');
+  loadExtraFieldsForEdit();
+}
+function closeExtraFields() { $('extra-mask').classList.remove('show'); }
+
+async function loadExtraFieldsForEdit() {
+  try {
+    const r = await api('/api/admin/extra-fields');
+    const j = await r.json();
+    extraFieldRows = Array.isArray(j.fields) ? j.fields.map((f) => ({ ...f })) : [];
+    renderExtraFieldList();
+  } catch (e) { /* 401 已跳转 */ }
+}
+
+function renderExtraFieldList() {
+  const list = $('extra-list');
+  if (!extraFieldRows.length) {
+    list.innerHTML = '<p style="text-align:center;color:#b6c6d9;padding:18px;font-size:13px">暂无自定义字段，点击下方按钮添加</p>';
+    return;
+  }
+  list.innerHTML = extraFieldRows.map((f, i) => `
+    <div class="ef-row" data-i="${i}">
+      <input type="text" class="ef-label" maxlength="50" placeholder="字段显示名（如：固定资产编号）" value="${esc(f.label)}">
+      <select class="ef-type">
+        <option value="text" ${f.type === 'text' ? 'selected' : ''}>文本</option>
+        <option value="number" ${f.type === 'number' ? 'selected' : ''}>数字</option>
+        <option value="date" ${f.type === 'date' ? 'selected' : ''}>日期</option>
+        <option value="tel" ${f.type === 'tel' ? 'selected' : ''}>电话</option>
+        <option value="email" ${f.type === 'email' ? 'selected' : ''}>邮箱</option>
+      </select>
+      <label class="ef-req"><input type="checkbox" class="ef-required" ${f.required ? 'checked' : ''}> 必填</label>
+      <button type="button" class="ef-del" title="删除此字段">×</button>
+    </div>
+  `).join('');
+  // 绑定删除
+  list.querySelectorAll('.ef-del').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      const i = +e.target.closest('.ef-row').dataset.i;
+      extraFieldRows.splice(i, 1);
+      renderExtraFieldList();
+    });
+  });
+}
+
+function readExtraFieldRows() {
+  const rows = [...$('extra-list').querySelectorAll('.ef-row')];
+  return rows.map((row) => {
+    const i = +row.dataset.i;
+    const f = extraFieldRows[i] || {};
+    const label = row.querySelector('.ef-label').value.trim();
+    const key = f.key || ('field_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
+    return {
+      key,
+      label,
+      type: row.querySelector('.ef-type').value,
+      required: row.querySelector('.ef-required').checked,
+    };
+  });
+}
+
+$('btn-extra-fields').addEventListener('click', openExtraFields);
+$('btn-add-field').addEventListener('click', () => {
+  extraFieldRows.push({ key: '', label: '', type: 'text', required: false });
+  renderExtraFieldList();
+});
+$('extra-mask').addEventListener('click', e => { if (e.target === $('extra-mask')) closeExtraFields(); });
+
+$('extra-save').addEventListener('click', async () => {
+  const fields = readExtraFieldRows();
+  // 校验
+  const labels = fields.map((f) => f.label);
+  if (labels.some((l) => !l)) { alert('字段显示名不能为空'); return; }
+  if (new Set(labels).size !== labels.length) { alert('字段显示名不能重复'); return; }
+  const btn = $('extra-save');
+  const m = $('extra-msg');
+  m.className = 'pwd-msg';
+  btn.disabled = true; btn.textContent = '保存中...';
+  try {
+    const r = await api('/api/admin/extra-fields', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields }),
+    });
+    const j = await r.json();
+    if (j.ok) {
+      m.className = 'pwd-msg success';
+      m.textContent = '保存成功';
+      setTimeout(closeExtraFields, 800);
+    } else {
+      m.className = 'pwd-msg error';
+      m.textContent = j.error || '保存失败';
     }
   } catch (e) { /* 401 已跳转 */ }
   finally { btn.disabled = false; btn.textContent = '保存'; }

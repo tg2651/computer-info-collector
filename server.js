@@ -135,6 +135,23 @@ function setSetting(key, value) {
   db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value);
 }
 
+// 自定义字段定义：[{ key, label, type, required }]，存 settings 表 key=extra_fields
+function getExtraFields() {
+  const v = getSetting('extra_fields');
+  if (!v) return [];
+  try {
+    const arr = JSON.parse(v);
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+function setExtraFields(fields) {
+  setSetting('extra_fields', JSON.stringify(fields));
+}
+// 生成稳定的列 key（extra_N），返回 { label -> key } 映射
+function buildExtraFieldMap() {
+  return getExtraFields().map((f, i) => ({ ...f, colKey: `extra_${i}` }));
+}
+
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.scryptSync(String(password), salt, 64).toString('hex');
@@ -248,6 +265,32 @@ app.post('/api/admin/change-password', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- 后台：获取自定义字段定义 ----------
+app.get('/api/admin/extra-fields', requireAdmin, (req, res) => {
+  res.json({ ok: true, fields: getExtraFields() });
+});
+
+// ---------- 后台：保存自定义字段定义（全量） ----------
+app.post('/api/admin/extra-fields', requireAdmin, (req, res) => {
+  const input = req.body && Array.isArray(req.body.fields) ? req.body.fields : [];
+  const fields = [];
+  const seenKeys = new Set();
+  for (const f of input) {
+    if (!f || typeof f !== 'object') continue;
+    const key = s(f.key, 50).replace(/[^A-Za-z0-9_]/g, '').toLowerCase();
+    const label = s(f.label, 50);
+    if (!label) continue;
+    const type = ['text', 'number', 'date', 'tel', 'email'].includes(f.type) ? f.type : 'text';
+    const required = !!f.required;
+    if (!key || seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    fields.push({ key, label, type, required });
+  }
+  if (fields.length > 50) return res.status(400).json({ ok: false, error: '字段数量不能超过 50 个' });
+  setExtraFields(fields);
+  res.json({ ok: true, fields });
+});
+
 // ---------- 信息上报（collect.ps1 / collect.exe 调用） ----------
 function normDeviceType(v) {
   const t = s(v).toLowerCase();
@@ -298,6 +341,11 @@ app.get('/api/info', (req, res) => {
   const row = db.prepare('SELECT * FROM records WHERE guid = ?').get(s(req.query.id, 200));
   if (!row) return res.status(404).json({ ok: false, error: '未找到该记录，请先在目标电脑上运行 collect.ps1' });
   res.json({ ok: true, data: rowOut(row, true) });
+});
+
+// ---------- 前台：获取自定义字段定义（公开，登记页加载用） ----------
+app.get('/api/extra-fields', (req, res) => {
+  res.json({ ok: true, fields: getExtraFields() });
 });
 
 // ---------- 前台：提交使用人/部门 ----------
@@ -411,9 +459,10 @@ app.get('/admin/export', requireAdmin, async (req, res) => {
   // Sheet1 资产信息
   const ws = wb.addWorksheet('资产信息');
 
-  // 收集所有记录里出现过的自定义字段名，每个字段独占一列
-  const extraKeys = [];
-  const extraKeySet = new Set();
+  // 自定义字段列：优先用后台定义的字段列表，再追加旧数据中出现但未定义的 label
+  const definedFields = getExtraFields();
+  const extraKeys = definedFields.map((f) => f.label);
+  const extraKeySet = new Set(extraKeys);
   for (const r of rows) {
     for (const x of parseJson(r.extra_json, [])) {
       const k = (x.label || '').trim();
